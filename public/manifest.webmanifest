@@ -1,0 +1,16 @@
+{
+  "name": "StockScope — Indian Stock Analysis",
+  "short_name": "StockScope",
+  "description": "Indian stock analysis across short, mid and long timeframes with price alerts.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#080b11",
+  "theme_color": "#080b11",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    { "src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

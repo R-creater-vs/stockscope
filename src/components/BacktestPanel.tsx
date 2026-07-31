@@ -1,0 +1,165 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { Area, AreaChart, ReferenceLine, ResponsiveContainer, Tooltip, YAxis } from 'recharts';
+import type { SymbolBacktest } from '@/lib/backtest';
+import SignalBuckets from './SignalBuckets';
+import { pct } from '@/lib/format';
+
+interface Resp {
+  result?: SymbolBacktest;
+  error?: string;
+}
+
+export default function BacktestPanel({ query }: { query: string }) {
+  const [data, setData] = useState<SymbolBacktest | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setData(null);
+      setError(null);
+      try {
+        const res = await fetch(`/api/backtest?q=${encodeURIComponent(query)}`);
+        const json: Resp = await res.json();
+        if (cancelled) return;
+        if (!res.ok || !json.result) setError(json.error ?? 'Backtest failed.');
+        else setData(json.result);
+      } catch {
+        if (!cancelled) setError('Could not run the backtest.');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [query]);
+
+  if (error) return <p className="px-5 py-4 text-sm text-[var(--muted)]">{error}</p>;
+  if (!data) {
+    return (
+      <div className="space-y-2 p-4">
+        <div className="h-24 animate-pulse rounded-lg bg-[var(--surface-2)]" />
+        <p className="text-center text-xs text-[var(--muted)]">
+          Replaying the engine over {data ? '' : '3 years of'} history…
+        </p>
+      </div>
+    );
+  }
+
+  const s = data.stats;
+  const beatHold = s.totalReturnPct > data.buyHoldReturnPct;
+  const edge = s.expectancyR > 0.03 ? 'positive' : s.expectancyR < -0.03 ? 'negative' : 'flat';
+  const edgeColor =
+    edge === 'positive' ? 'var(--bull)' : edge === 'negative' ? 'var(--bear)' : 'var(--warn)';
+
+  return (
+    <div className="p-4">
+      {/* Honest one-line verdict first. */}
+      <div
+        className="mb-4 rounded-lg px-4 py-3 text-sm"
+        style={{ background: `${edgeColor}14`, color: 'var(--foreground)' }}
+      >
+        Over {data.from} → {data.to}, this strategy took{' '}
+        <strong>{s.trades}</strong> trades on {data.symbol.replace('.NS', '')} with a{' '}
+        <strong>{s.winRate.toFixed(0)}% win rate</strong> and an expectancy of{' '}
+        <strong style={{ color: edgeColor }}>
+          {s.expectancyR >= 0 ? '+' : ''}
+          {s.expectancyR.toFixed(2)}R
+        </strong>{' '}
+        per trade — a <strong style={{ color: edgeColor }}>{edge} edge</strong>.
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat label="Trades" value={`${s.trades}`} />
+        <Stat label="Win rate" value={`${s.winRate.toFixed(0)}%`} />
+        <Stat
+          label="Expectancy"
+          value={`${s.expectancyR >= 0 ? '+' : ''}${s.expectancyR.toFixed(2)}R`}
+          color={edgeColor}
+        />
+        <Stat
+          label="Profit factor"
+          value={isFinite(s.profitFactor) ? s.profitFactor.toFixed(2) : '∞'}
+          color={s.profitFactor >= 1 ? 'var(--bull)' : 'var(--bear)'}
+        />
+        <Stat
+          label="Strategy return"
+          value={pct(s.totalReturnPct, 1, true)}
+          color={s.totalReturnPct >= 0 ? 'var(--bull)' : 'var(--bear)'}
+        />
+        <Stat
+          label="Buy & hold"
+          value={pct(data.buyHoldReturnPct, 1, true)}
+          color={data.buyHoldReturnPct >= 0 ? 'var(--bull)' : 'var(--bear)'}
+        />
+        <Stat label="Max drawdown" value={pct(-s.maxDrawdownPct, 1)} color="var(--bear)" />
+        <Stat label="Avg hold" value={`${s.avgHoldDays.toFixed(1)}d`} />
+      </div>
+
+      {data.equityCurve.length > 2 && (
+        <div className="mt-5">
+          <p className="mb-1 text-xs font-medium uppercase tracking-wider text-[var(--muted)]">
+            Equity curve — ₹100 traded one position at a time
+          </p>
+          <ResponsiveContainer width="100%" height={120}>
+            <AreaChart data={data.equityCurve} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
+              <defs>
+                <linearGradient id="eqFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={beatHold ? 'var(--bull)' : 'var(--bear)'} stopOpacity={0.3} />
+                  <stop offset="100%" stopColor={beatHold ? 'var(--bull)' : 'var(--bear)'} stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <YAxis hide domain={['dataMin', 'dataMax']} />
+              <ReferenceLine y={100} stroke="var(--border)" strokeDasharray="3 3" />
+              <Tooltip
+                contentStyle={{
+                  background: 'var(--surface-2)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  fontSize: 12,
+                }}
+                labelStyle={{ color: 'var(--muted)' }}
+                formatter={(v) => [`₹${Number(v).toFixed(1)}`, 'Equity']}
+              />
+              <Area
+                type="monotone"
+                dataKey="equity"
+                stroke={beatHold ? 'var(--bull)' : 'var(--bear)'}
+                strokeWidth={1.6}
+                fill="url(#eqFill)"
+                isAnimationActive={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      <div className="mt-5">
+        <p className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted)]">
+          Does the score predict returns? (this stock)
+        </p>
+        <SignalBuckets buckets={data.signal.buckets} horizon={data.signal.horizon} />
+        <p className="mt-2 text-[11px] text-[var(--muted)]">
+          Score/return correlation for {data.symbol.replace('.NS', '')}:{' '}
+          <span className="tnum" style={{ color: data.signal.correlation >= 0 ? 'var(--bull)' : 'var(--bear)' }}>
+            {data.signal.correlation >= 0 ? '+' : ''}
+            {data.signal.correlation.toFixed(3)}
+          </span>{' '}
+          · net of {data.config.costPct}% round-trip cost · entries at next day&apos;s open.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <div className="rounded-lg bg-[var(--surface-2)] px-3 py-2">
+      <p className="text-[10px] uppercase tracking-widest text-[var(--muted)]">{label}</p>
+      <p className="tnum mt-0.5 text-base font-semibold" style={color ? { color } : undefined}>
+        {value}
+      </p>
+    </div>
+  );
+}

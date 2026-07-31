@@ -1,0 +1,323 @@
+@import "tailwindcss";
+
+/*
+ * StockScope design system — a fixed, deep dark theme. Trading interfaces are
+ * read for long stretches and the green/red colour coding only holds up against
+ * a dark ground. The palette, elevation and motion below are the whole app's
+ * visual language; components reference these tokens rather than raw values.
+ */
+:root {
+  /* Ground & surfaces — a subtle blue-black, layered for depth. */
+  --background: #080b11;
+  --surface: #0e131c;
+  --surface-2: #161d29;
+  --surface-3: #1f2836;
+  --border: #212a39;
+  --border-strong: #2c384b;
+
+  /* Ink */
+  --foreground: #eef2f8;
+  --muted: #94a1b6;
+  --muted-2: #6b7688;
+
+  /* Semantics */
+  --bull: #26d07c;
+  --bear: #f6465d;
+  --warn: #f6a723;
+
+  /* Brand accent — electric blue into violet for gradients & glow. */
+  --accent: #4d7cfe;
+  --accent-2: #8b5cf6;
+  --ring: rgba(77, 124, 254, 0.5);
+  --glow: rgba(77, 124, 254, 0.28);
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow: 0 12px 34px -14px rgba(0, 0, 0, 0.72);
+  --shadow-lg: 0 32px 72px -28px rgba(0, 0, 0, 0.78);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-border: var(--border);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-bull: var(--bull);
+  --color-bear: var(--bear);
+  --color-warn: var(--warn);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  /* The page must never scroll sideways on a phone; wide children (charts,
+     tables) scroll within their own container instead. */
+  overflow-x: hidden;
+  /* Kill the grey tap-flash and rubber-band glitches on touch, and keep the
+     home-indicator area painted with the app background in a standalone PWA. */
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Safe-area helper for the notch / status bar. The app draws edge-to-edge
+   (viewport-fit=cover); this keeps the sticky header clear of the status bar in
+   a standalone PWA. Additive (elements using it have no other top padding), and
+   on desktop the inset is 0, so it has no effect there. */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* iOS zooms the whole page in when a focused field's text is under 16px. Pin
+   the interactive controls to 16px on phones so tapping a box never zooms. */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Momentum scrolling + no scroll-chaining for the horizontally-scrolling
+   tables (leaderboards, backtests) so a sideways swipe feels native and never
+   drags the page with it. */
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+
+/* Ambient glow — two soft, fixed light sources that give the near-black ground
+   a sense of depth without ever competing with foreground content. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60rem 40rem at 12% -8%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 60%),
+    radial-gradient(52rem 38rem at 92% 0%, color-mix(in srgb, var(--accent-2) 13%, transparent), transparent 58%);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 40%, transparent);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Numbers must align vertically in tables to be scannable. */
+.tnum {
+  font-family: var(--font-geist-mono), monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------- components */
+
+@layer components {
+  /* Brand wordmark — white easing into the accent. */
+  .gradient-text {
+    background: linear-gradient(100deg, #ffffff 0%, #b9caff 55%, #c6b3ff 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Large hero headline gradient. */
+  .gradient-hero {
+    background: linear-gradient(120deg, #ffffff 0%, #cdd8f5 45%, color-mix(in srgb, var(--accent) 80%, #fff) 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .brand-mark {
+    display: grid;
+    place-items: center;
+    height: 2rem;
+    width: 2rem;
+    border-radius: 0.6rem;
+    background: linear-gradient(140deg, var(--accent), var(--accent-2));
+    box-shadow: 0 8px 20px -8px var(--ring), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), var(--shadow-sm);
+  }
+
+  .glass-panel {
+    background: color-mix(in srgb, var(--surface) 82%, transparent);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--border-strong);
+    border-radius: 0.9rem;
+    box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.7rem;
+    padding: 0.7rem 1.25rem;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    box-shadow: 0 10px 26px -12px var(--glow), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    transition: filter 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn-primary:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+    box-shadow: 0 16px 34px -12px var(--glow), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  }
+  .btn-primary:active {
+    transform: translateY(0);
+  }
+  .btn-primary:disabled {
+    opacity: 0.45;
+    filter: none;
+    transform: none;
+    cursor: not-allowed;
+  }
+
+  .btn-glass {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 0.7rem;
+    padding: 0.5rem 0.85rem;
+    font-weight: 500;
+    color: var(--foreground);
+    background: color-mix(in srgb, var(--surface) 70%, transparent);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(8px);
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .btn-glass:hover {
+    border-color: var(--accent);
+    background: var(--surface-2);
+  }
+
+  .btn-google {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    border-radius: 0.7rem;
+    padding: 0.65rem 1rem;
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: #1f2328;
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 4px 14px -6px rgba(0, 0, 0, 0.5);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn-google:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px -8px rgba(0, 0, 0, 0.55);
+  }
+
+  /* Interactive surface that lifts on hover — for clickable cards. */
+  .lift {
+    transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  }
+  .lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
+  }
+}
+
+/* --------------------------------------------------------------- motion */
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.animate-fade-in {
+  animation: fadeIn 0.4s ease both;
+}
+.animate-scale-in {
+  animation: scaleIn 0.14s ease-out both;
+  transform-origin: top right;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-fade-in,
+  .animate-scale-in {
+    animation: none;
+  }
+  .lift:hover,
+  .btn-primary:hover {
+    transform: none;
+  }
+}
+
+/* --------------------------------------------------------------- scrollbar */
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 5px;
+  border: 2px solid var(--background);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-strong);
+}
