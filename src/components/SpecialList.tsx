@@ -104,7 +104,58 @@ export default function SpecialList({ onSelect }: { onSelect: (symbol: string) =
         </p>
       ) : (
         <section className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
-          <div className="overflow-x-auto">
+          {/* Mobile: tap-friendly cards. Desktop (sm+): the full table below. */}
+          <div className="divide-y divide-[var(--border)] sm:hidden">
+            {ranked.map((r, i) => {
+              const good = (r.btExpectancyR ?? 0) > 0;
+              return (
+                <div
+                  key={r.symbol}
+                  onClick={() => onSelect(r.symbol)}
+                  className="cursor-pointer px-4 py-3 transition active:bg-[var(--surface-2)]"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="tnum text-[11px] text-[var(--muted-2)]">#{i + 1}</span>
+                        <span className="truncate font-medium leading-tight">{r.name}</span>
+                      </div>
+                      <div className="tnum mt-0.5 text-[11px] text-[var(--muted)]">
+                        {r.symbol.replace('.NS', '')} · {r.sector} · {inr(r.price)}
+                      </div>
+                    </div>
+                    <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <StarButton symbol={r.symbol} name={r.name} size="sm" />
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <div className="flex items-baseline gap-1.5">
+                      <span
+                        className="tnum text-lg font-bold"
+                        style={{ color: good ? 'var(--bull)' : 'var(--muted)' }}
+                      >
+                        {r.btWinRate}%
+                      </span>
+                      <span className="text-[11px] text-[var(--muted)]">
+                        success · {r.btTrades} trades
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="tnum text-sm font-medium"
+                        style={{ color: good ? 'var(--bull)' : 'var(--bear)' }}
+                      >
+                        {(r.btExpectancyR ?? 0) > 0 ? '+' : ''}
+                        {(r.btExpectancyR ?? 0).toFixed(2)}R
+                      </span>
+                      <VerdictBadge verdict={r.verdict} size="xs" />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden overflow-x-auto sm:block">
             <table className="w-full min-w-[680px] text-sm">
               <thead>
                 <tr className="border-b border-[var(--border)] text-left text-[11px] uppercase tracking-wider text-[var(--muted)]">

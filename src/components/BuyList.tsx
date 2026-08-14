@@ -101,8 +101,46 @@ function BuyList({
             : 'Nothing on a buy signal in this price range. Widen the price filter, or check the setups below.'}
         </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-sm">
+        <>
+          {/* Mobile: tap-friendly cards. Desktop (sm+): the full table below. */}
+          <div className="divide-y divide-[var(--border)] sm:hidden">
+            {shown.map((r) => (
+              <div
+                key={r.symbol}
+                onClick={() => onSelect(r.symbol)}
+                className="cursor-pointer px-4 py-3 transition active:bg-[var(--surface-2)]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate font-medium leading-tight">{r.name}</div>
+                    <div className="tnum mt-0.5 text-[11px] text-[var(--muted)]">
+                      {r.symbol.replace('.NS', '')} · {r.sector}
+                    </div>
+                  </div>
+                  <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <StarButton symbol={r.symbol} name={r.name} size="sm" />
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <VerdictBadge verdict={r.verdict} />
+                  <span className="tnum text-sm font-medium">{inr(r.price)}</span>
+                  <span
+                    className="tnum text-xs"
+                    style={{ color: r.changePercent >= 0 ? 'var(--bull)' : 'var(--bear)' }}
+                  >
+                    {pct(r.changePercent, 1, true)}
+                  </span>
+                  <span className="tnum text-xs text-[var(--muted)]">Score {Math.round(r.score)}</span>
+                  <TrendAgreement row={r} />
+                  <div className="ml-auto">
+                    <BacktestStat winRate={r.btWinRate} trades={r.btTrades} expectancyR={r.btExpectancyR} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto sm:block">
+            <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-[var(--border)] text-left text-[11px] uppercase tracking-wider text-[var(--muted)]">
                 <th className="py-2.5 pl-5 pr-3 font-medium">Stock</th>
@@ -156,7 +194,8 @@ function BuyList({
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       )}
 
       <p className="border-t border-[var(--border)] px-5 py-2.5 text-[11px] text-[var(--muted)]">
