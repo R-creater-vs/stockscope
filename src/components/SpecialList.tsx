@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ScreenRow } from '@/lib/screenAggregate';
 import PriceFilter, { type PriceRange } from './PriceFilter';
-import { inr } from '@/lib/format';
+import { inr, relativeTime } from '@/lib/format';
 import StarButton from './StarButton';
 import { VerdictBadge } from './VerdictBadge';
 
@@ -23,6 +23,7 @@ export default function SpecialList({ onSelect }: { onSelect: (symbol: string) =
   const [all, setAll] = useState<ScreenRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState<PriceRange>(DEFAULT_RANGE);
+  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -32,7 +33,10 @@ export default function SpecialList({ onSelect }: { onSelect: (symbol: string) =
         const json = await res.json();
         if (cancelled) return;
         if (!res.ok) setError(json.error ?? 'Scan failed.');
-        else setAll(json.all as ScreenRow[]);
+        else {
+          setAll(json.all as ScreenRow[]);
+          setGeneratedAt(json.generatedAt ?? null);
+        }
       } catch {
         if (!cancelled) setError('Could not reach the server.');
       }
@@ -87,6 +91,15 @@ export default function SpecialList({ onSelect }: { onSelect: (symbol: string) =
         {all && (
           <span className="text-xs text-[var(--muted)]">
             {ranked.length} shown{ranked.length === TOP_N ? ` (top ${TOP_N})` : ''}
+            {generatedAt && (
+              <>
+                {' '}
+                · scan{' '}
+                <span title={new Date(generatedAt).toLocaleString('en-IN')}>
+                  {relativeTime(generatedAt)}
+                </span>
+              </>
+            )}
           </span>
         )}
       </div>

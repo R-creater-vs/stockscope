@@ -43,3 +43,21 @@ export function compactVolume(n: number | null | undefined): string {
   if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
   return String(Math.round(n));
 }
+
+/**
+ * "3 min ago" / "2 days ago". Used to honestly label scan freshness — the
+ * screener can legitimately be serving a scan from before the last server
+ * restart while a background refresh catches up, and that age should be
+ * visible rather than papered over with a plain "updated" label.
+ */
+export function relativeTime(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!isFinite(ms) || ms < 0) return 'just now';
+  const min = Math.round(ms / 60_000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min} min ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.round(hr / 24);
+  return `${day}d ago`;
+}

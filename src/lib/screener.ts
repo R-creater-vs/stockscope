@@ -14,6 +14,7 @@ import { backtestSymbol, longTrendStrategy, type BacktestConfig } from './backte
 import { fetchBars } from './providers';
 import { MARKET_INDEX, UNIVERSE, type UniverseEntry } from './universe';
 import type { MarketContext, Regime, ScreenRow, SetupTag } from './screenAggregate';
+import { loadScreenCache, saveScreenCache } from './db';
 
 // The pure aggregation (types + bucketing + sector rotation) lives in a
 // server-dependency-free module so client components can re-run it for instant
@@ -59,6 +60,44 @@ export function cachedScreen(): ScreenResult | null {
 }
 
 /**
+ * Load the last successful scan from disk into memory, so a fresh process
+ * (a restart after Android reclaimed Termux, say) has something real to serve
+ * the instant a request comes in — not a blank screen while a full ~170-symbol
+ * scan runs cold. It will read as stale (its true age, however old) until the
+ * background refresh below catches up, which is honest and correct.
+ */
+function primeFromDisk(): void {
+  if (cached) return; // already have something in memory — never overwrite it with an older disk copy
+  try {
+    const persisted = loadScreenCache();
+    if (!persisted) return;
+    const result = JSON.parse(persisted.data) as ScreenResult;
+    cached = { at: new Date(persisted.generatedAt).getTime(), result };
+    console.log(
+      `[screen] primed from disk: ${result.rows.length} stocks, generated ${persisted.generatedAt}`,
+    );
+  } catch (err) {
+    console.error('[screen] failed to prime from disk', err);
+  }
+}
+
+/**
+ * Called once at server boot (from the scheduler, which is already excluded
+ * from the Edge/middleware build — see next.config.ts). Primes memory from the
+ * last saved scan, then kicks a background refresh immediately: even a
+ * persisted cache is likely stale the moment the process restarts, which is
+ * exactly the situation this exists for.
+ */
+export function warmScreenCache(): void {
+  primeFromDisk();
+  if (!inFlight) {
+    inFlight = runScan().finally(() => {
+      inFlight = null;
+    });
+  }
+}
+
+/**
  * The market regime on its own, independently cached (5 min). The global regime
  * banner loads on every page, so it must NOT trigger or wait on the full
  * 130-stock scan — it fetches only the index series, which is one cheap request.
@@ -74,15 +113,37 @@ export async function marketRegime(): Promise<MarketContext | null> {
 }
 
 /**
- * Run the scan, or join the one already running. Without the in-flight guard,
- * three users landing on the page at once would trigger three full scans and
- * get us rate-limited by Yahoo.
+ * Serve-stale-while-revalidate: a fresh scan is always used if we have one, but
+ * a request NEVER blocks on the live ~170-symbol scan as long as we have
+ * anything at all to show (even minutes- or days-old, e.g. right after a
+ * restart) — it gets that immediately, and a background refresh quietly
+ * updates the cache for the next request. Only the very first scan a process
+ * ever runs — nothing in memory, nothing on disk — makes a caller wait, and the
+ * in-flight guard means concurrent requests in that window join the same scan
+ * rather than each triggering their own and getting us rate-limited by Yahoo.
+ *
+ * Primes from disk here too, not only in warmScreenCache() at boot: Next's
+ * production build can give the instrumentation hook and an API route separate
+ * compiled module instances of this file, each with its own `cached` variable
+ * — so the route handler cannot assume the scheduler's warm-up ran in the same
+ * copy. Priming lazily on first use makes every instance self-sufficient.
  */
 export async function screen(): Promise<ScreenResult> {
-  const hit = cachedScreen();
-  if (hit) return hit;
-  if (inFlight) return inFlight;
+  const fresh = cachedScreen();
+  if (fresh) return fresh;
 
+  if (!cached) primeFromDisk();
+
+  if (cached) {
+    if (!inFlight) {
+      inFlight = runScan().finally(() => {
+        inFlight = null;
+      });
+    }
+    return cached.result;
+  }
+
+  if (inFlight) return inFlight;
   inFlight = runScan().finally(() => {
     inFlight = null;
   });
@@ -97,18 +158,40 @@ async function runScan(): Promise<ScreenResult> {
     mapWithConcurrency(UNIVERSE, 8, scanOne),
   ]);
 
-  const rows = results.filter((r): r is ScreenRow => r !== null);
+  const rows = results.filter((r): r is ScreenRow => r !== null).sort((a, b) => b.score - a.score);
 
   const result: ScreenResult = {
     market,
-    rows: rows.sort((a, b) => b.score - a.score),
+    rows,
     scanned: rows.length,
     failed: UNIVERSE.length - rows.length,
     generatedAt: new Date().toISOString(),
     durationMs: Date.now() - started,
   };
 
+  // A patchy mobile connection can fail a chunk of the ~170 Yahoo calls mid-scan.
+  // Rather than show — and persist — a visibly worse list than what we already
+  // had, only accept the new scan if it isn't a drastic regression (or if there
+  // was nothing to protect yet). A genuinely degraded scan is just discarded; it
+  // gets retried on the next background refresh instead of flashing an empty or
+  // half-populated screen at whoever happens to be looking right now.
+  const previous = cached?.result ?? null;
+  const previousCount = previous?.rows.length ?? 0;
+  const healthy = rows.length >= 20 && (previousCount === 0 || rows.length >= previousCount * 0.6);
+
+  if (!healthy && previous) {
+    console.warn(
+      `[screen] scan looked degraded (${rows.length} vs ${previousCount} stocks previously) — keeping the last good result`,
+    );
+    return previous;
+  }
+
   cached = { at: Date.now(), result };
+  try {
+    saveScreenCache(JSON.stringify(result), result.generatedAt);
+  } catch (err) {
+    console.error('[screen] failed to persist cache', err);
+  }
   return result;
 }
 

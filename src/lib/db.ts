@@ -86,6 +86,17 @@ function migrate(d: DatabaseSync): void {
 
     CREATE INDEX IF NOT EXISTS idx_events_user ON alert_events(user_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_alerts_active ON alerts(active);
+
+    -- A single-row cache of the last successful stock-screener scan (~170
+    -- symbols, expensive to compute). Persisted so a server restart — the free
+    -- on-phone hosting route can lose its process when the phone reclaims it —
+    -- still has something real to show instantly, while a fresh scan runs
+    -- quietly in the background instead of the whole list going blank.
+    CREATE TABLE IF NOT EXISTS screen_cache (
+      id           INTEGER PRIMARY KEY CHECK (id = 1),
+      data         TEXT NOT NULL,
+      generated_at TEXT NOT NULL
+    );
   `);
 
   // Bring pre-existing databases (created before sign-in) up to the current
@@ -195,6 +206,25 @@ export function addWatch(userId: string, symbol: string, name: string): void {
       'INSERT OR REPLACE INTO watchlist(user_id, symbol, name, added_at) VALUES(?, ?, ?, ?)',
     )
     .run(userId, symbol, name, Date.now());
+}
+
+/* ------------------------------------------------------------ screen cache */
+
+/** Kept as an opaque JSON string — db.ts stays untyped on screener internals. */
+export function saveScreenCache(json: string, generatedAt: string): void {
+  connect()
+    .prepare(
+      `INSERT INTO screen_cache(id, data, generated_at) VALUES(1, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET data = excluded.data, generated_at = excluded.generated_at`,
+    )
+    .run(json, generatedAt);
+}
+
+export function loadScreenCache(): { data: string; generatedAt: string } | null {
+  const row = connect()
+    .prepare('SELECT data, generated_at AS generatedAt FROM screen_cache WHERE id = 1')
+    .get() as unknown as { data: string; generatedAt: string } | undefined;
+  return row ?? null;
 }
 
 export function removeWatch(userId: string, symbol: string): void {

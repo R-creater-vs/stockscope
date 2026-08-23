@@ -6,12 +6,19 @@
  */
 
 import { scanAlerts } from './alerts';
+import { warmScreenCache } from './screener';
 
 let started = false;
 
 export function startScheduler(): void {
   if (started) return;
   started = true;
+
+  // Prime the stock-screener cache from disk and kick a background refresh —
+  // see warmScreenCache() for why. Routed through here (rather than a direct
+  // call from instrumentation.ts) so it rides the same Webpack IgnorePlugin
+  // exclusion already proven for this module; see next.config.ts.
+  warmScreenCache();
 
   const intervalMs = Number(process.env.ALERT_INTERVAL_MS ?? 15 * 60 * 1000);
 

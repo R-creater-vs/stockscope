@@ -7,6 +7,7 @@ import BuyList from './BuyList';
 import PriceFilter, { type PriceRange, ANY_PRICE } from './PriceFilter';
 import { buildBuckets } from '@/lib/screenAggregate';
 import type { MarketContext, ScreenRow, SectorStat } from '@/lib/screenAggregate';
+import { relativeTime } from '@/lib/format';
 
 interface ScreenResponse {
   market: MarketContext | null;
@@ -125,8 +126,12 @@ export default function Discover({ onSelect }: { onSelect: (symbol: string) => v
       </div>
 
       <p className="text-xs text-[var(--muted)]">
-        Scanned {data.scanned} liquid NSE stocks, refreshed every 15 minutes. Ranked by technical
-        setup quality only — this is a starting point for your own research, not a recommendation.
+        Scanned {data.scanned} liquid NSE stocks, refreshed every 15 minutes · scan{' '}
+        <span title={new Date(data.generatedAt).toLocaleString('en-IN')}>
+          {relativeTime(data.generatedAt)}
+        </span>
+        . Ranked by technical setup quality only — this is a starting point for your own research, not
+        a recommendation.
       </p>
     </div>
   );
