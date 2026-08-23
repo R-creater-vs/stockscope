@@ -97,6 +97,17 @@ function migrate(d: DatabaseSync): void {
       data         TEXT NOT NULL,
       generated_at TEXT NOT NULL
     );
+
+    -- Per-symbol cache of the single-stock backtest, now run since the stock's
+    -- listing rather than a trailing window — for an old, liquid name that can
+    -- be tens of thousands of days replayed one at a time, genuinely a minute
+    -- or more of work. Persisted so it survives a restart and is never repeated
+    -- more than once in the cache's freshness window.
+    CREATE TABLE IF NOT EXISTS backtest_cache (
+      symbol       TEXT PRIMARY KEY,
+      data         TEXT NOT NULL,
+      generated_at TEXT NOT NULL
+    );
   `);
 
   // Bring pre-existing databases (created before sign-in) up to the current
@@ -224,6 +235,24 @@ export function loadScreenCache(): { data: string; generatedAt: string } | null 
   const row = connect()
     .prepare('SELECT data, generated_at AS generatedAt FROM screen_cache WHERE id = 1')
     .get() as unknown as { data: string; generatedAt: string } | undefined;
+  return row ?? null;
+}
+
+/* ---------------------------------------------------------- backtest cache */
+
+export function saveBacktestCache(symbol: string, json: string, generatedAt: string): void {
+  connect()
+    .prepare(
+      `INSERT INTO backtest_cache(symbol, data, generated_at) VALUES(?, ?, ?)
+       ON CONFLICT(symbol) DO UPDATE SET data = excluded.data, generated_at = excluded.generated_at`,
+    )
+    .run(symbol, json, generatedAt);
+}
+
+export function loadBacktestCache(symbol: string): { data: string; generatedAt: string } | null {
+  const row = connect()
+    .prepare('SELECT data, generated_at AS generatedAt FROM backtest_cache WHERE symbol = ?')
+    .get(symbol) as unknown as { data: string; generatedAt: string } | undefined;
   return row ?? null;
 }
 

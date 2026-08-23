@@ -6,42 +6,83 @@ import type { SymbolBacktest } from '@/lib/backtest';
 import SignalBuckets from './SignalBuckets';
 import { pct } from '@/lib/format';
 
-interface Resp {
-  result?: SymbolBacktest;
-  error?: string;
-}
+/**
+ * The backtest now replays a stock's ENTIRE history, not a trailing window —
+ * for an old, liquid name that's tens of thousands of days, each re-running the
+ * full engine, which can take a minute or more (measured ~80s for RELIANCE on
+ * a desktop). The API runs it as a background job rather than blocking the
+ * request, so this polls for the result instead of a single fetch-and-wait.
+ */
+type Resp =
+  | { status: 'ready'; result: SymbolBacktest }
+  | { status: 'pending'; startedAt: number }
+  | { status: 'error'; error: string }
+  | { error: string };
+
+const POLL_MS = 2500;
 
 export default function BacktestPanel({ query }: { query: string }) {
   const [data, setData] = useState<SymbolBacktest | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      setData(null);
-      setError(null);
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const poll = async () => {
       try {
         const res = await fetch(`/api/backtest?q=${encodeURIComponent(query)}`);
-        const json: Resp = await res.json();
+        const json = (await res.json()) as Resp;
         if (cancelled) return;
-        if (!res.ok || !json.result) setError(json.error ?? 'Backtest failed.');
-        else setData(json.result);
+
+        if (!res.ok || 'error' in json) {
+          setError('error' in json ? json.error : 'Backtest failed.');
+          return;
+        }
+        if (json.status === 'ready') {
+          setData(json.result);
+          return;
+        }
+        setStartedAt(json.startedAt);
+        timer = setTimeout(poll, POLL_MS);
       } catch {
         if (!cancelled) setError('Could not run the backtest.');
       }
+    };
+
+    (async () => {
+      setData(null);
+      setError(null);
+      setStartedAt(null);
+      await poll();
     })();
+
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
   }, [query]);
 
+  // Ticks the elapsed-time readout while a job is in flight.
+  useEffect(() => {
+    if (data || error) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [data, error]);
+
   if (error) return <p className="px-5 py-4 text-sm text-[var(--muted)]">{error}</p>;
   if (!data) {
+    const elapsedS = startedAt ? Math.max(0, Math.round((now - startedAt) / 1000)) : 0;
     return (
       <div className="space-y-2 p-4">
         <div className="h-24 animate-pulse rounded-lg bg-[var(--surface-2)]" />
         <p className="text-center text-xs text-[var(--muted)]">
-          Replaying the engine over {data ? '' : '3 years of'} history…
+          Replaying the engine since this stock&apos;s listing, one trading day at a time — older,
+          long-listed names can take a minute or two the first time
+          {elapsedS > 4 ? ` (${elapsedS}s so far)` : ''}. Cached after that, so it&apos;s instant for
+          the rest of today.
         </p>
       </div>
     );
