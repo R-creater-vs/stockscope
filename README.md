@@ -27,6 +27,7 @@ Other scripts:
 | Command | What it does |
 | --- | --- |
 | `npm run build` | Production build |
+| `npm run build:termux` | Android/Termux production build using Webpack because Turbopack native bindings are unavailable there |
 | `npm run typecheck` | TypeScript, no emit |
 | `npm run lint` | ESLint |
 | `npm run verify` | Validates the indicator math against independent references (**dev server must be running**) |

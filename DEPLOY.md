@@ -58,10 +58,11 @@ simpler.)
 ### 4. Build and start it
 ```bash
 npm install
-npm run build
+npm run build:termux
 npm start
 ```
-`npm install` and `npm run build` are the slow, heavy steps on a phone — give them a few minutes and
+Termux uses WebAssembly bindings on Android, so this dedicated command builds with Webpack instead
+of Turbopack. `npm install` and `npm run build:termux` are the slow, heavy steps on a phone — give them a few minutes and
 keep ~1.5 GB free. You only do them **once** (and again only when the code changes). When it prints
 `Ready`, leave Termux open.
 
@@ -81,7 +82,7 @@ the server to sleep the moment you switch away.
 
 ### 7. Using it day to day
 - To reopen after a reboot: launch **Termux**, then `cd nivra && npm start`. No rebuild needed.
-- After a code change: `git pull && npm install && npm run build && npm start`.
+- After a code change: `git pull && npm install && npm run build:termux && npm start`.
 - The app icon on your home screen always points at the local server; it just needs Termux running.
 
 **What Option A does and doesn't do — plainly:**
