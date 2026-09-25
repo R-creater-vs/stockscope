@@ -1,5 +1,7 @@
 ﻿# NIVRA redesign verification
 
+The later [search and loading verification](search-and-loading.md) covers the simplified search/report workflow, request deadlines and responsive history calculations. Browser records and screenshots have been refreshed for that follow-up; the standalone and external-reference observations below also retain the original redesign history.
+
 The final frontend build, lint, typecheck, frozen math regression and browser suite passed. **The live external-reference indicator suite remains failing on one SMA200 comparison.** This report does not establish complete WCAG conformance, production performance, a profitable strategy or name clearance.
 
 See the [repository audit](audit.md), [design system](design-system.md), [brand record](brand.md) and [six-view screenshot gallery](screenshots.md).

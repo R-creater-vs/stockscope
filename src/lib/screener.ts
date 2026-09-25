@@ -10,7 +10,7 @@ import { adx, bollinger, donchian, ema, last, macd, roc, rsi, sma } from './indi
 import type { Bar } from './indicators';
 import { analyzeSwing, type Verdict } from './swing';
 import { analyzeMidTerm } from './midterm';
-import { backtestSymbol, longTrendStrategy, type BacktestConfig } from './backtest';
+import { backtestSymbolAsync, longTrendStrategy, type BacktestConfig } from './backtest';
 import { fetchBars } from './providers';
 import { MARKET_INDEX, UNIVERSE, type UniverseEntry } from './universe';
 import type { MarketContext, Regime, ScreenRow, SetupTag } from './screenAggregate';
@@ -247,7 +247,7 @@ async function scanOne(entry: UniverseEntry): Promise<ScreenRow | null> {
     let btExpectancyR: number | null = null;
     let btTrades = 0;
     try {
-      const bt = backtestSymbol(entry.symbol, bars, SCREEN_BT_CONFIG);
+      const bt = await backtestSymbolAsync(entry.symbol, bars, SCREEN_BT_CONFIG);
       btTrades = bt.stats.trades;
       if (btTrades > 0) {
         btWinRate = Math.round(bt.stats.winRate);

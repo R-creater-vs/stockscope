@@ -8,6 +8,8 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // Runtime identities, SQLite data and VAPID keys belong on the deployment's
   // persistent volume. Never copy local data or env files into a server bundle.
+  // The postbuild packaging guard also enforces this on Windows, where Next
+  // 16.2.11's Webpack trace matcher mishandles backslashes in exclusion globs.
   outputFileTracingExcludes: {
     "/*": ["./.data/**/*", "./.env*"],
   },

@@ -14,6 +14,7 @@
 
 import type { Bar } from '../indicators';
 import type { CompanyData, FetchSpan, SymbolMatch } from '../yahoo';
+import type { DataRequestOptions } from '../providerRequest';
 
 export interface DataProvider {
   /** Human-readable name, surfaced in the UI so users know where data came from. */
@@ -21,13 +22,14 @@ export interface DataProvider {
   /** True when this feed is intraday/live rather than delayed end-of-day. */
   readonly realtime: boolean;
 
-  searchIndian(query: string): Promise<SymbolMatch[]>;
-  resolveSymbol(input: string): Promise<SymbolMatch | null>;
+  searchIndian(query: string, options?: DataRequestOptions): Promise<SymbolMatch[]>;
+  resolveSymbol(input: string, options?: DataRequestOptions): Promise<SymbolMatch | null>;
   fetchBars(
     symbol: string,
     span?: number | FetchSpan,
+    options?: DataRequestOptions,
   ): Promise<{ bars: Bar[]; symbol: string; switchedFrom?: string }>;
-  fetchCompany(symbol: string): Promise<CompanyData>;
+  fetchCompany(symbol: string, options?: DataRequestOptions): Promise<CompanyData>;
 }
 
 let cached: DataProvider | null = null;
@@ -74,7 +76,7 @@ const yahooProvider: DataProvider = {
 /* So callers can `import { fetchBars } from '@/lib/providers'` and stay unaware
    of which provider is live. */
 
-export const searchIndian: DataProvider['searchIndian'] = (q) => activeProvider().searchIndian(q);
-export const resolveSymbol: DataProvider['resolveSymbol'] = (i) => activeProvider().resolveSymbol(i);
-export const fetchBars: DataProvider['fetchBars'] = (s, span) => activeProvider().fetchBars(s, span);
-export const fetchCompany: DataProvider['fetchCompany'] = (s) => activeProvider().fetchCompany(s);
+export const searchIndian: DataProvider['searchIndian'] = (q, options) => activeProvider().searchIndian(q, options);
+export const resolveSymbol: DataProvider['resolveSymbol'] = (i, options) => activeProvider().resolveSymbol(i, options);
+export const fetchBars: DataProvider['fetchBars'] = (s, span, options) => activeProvider().fetchBars(s, span, options);
+export const fetchCompany: DataProvider['fetchCompany'] = (s, options) => activeProvider().fetchCompany(s, options);

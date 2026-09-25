@@ -25,11 +25,13 @@ export interface Narrative {
 export async function buildNarrative(
   company: CompanyData,
   analysis: SwingAnalysis,
+  options: { allowAI?: boolean; signal?: AbortSignal } = {},
 ): Promise<Narrative> {
   const fallback = templateNarrative(company, analysis);
+  if (options.allowAI === false) return { text: fallback, source: 'template' };
 
   try {
-    const text = await ollamaNarrative(company, analysis);
+    const text = await ollamaNarrative(company, analysis, options.signal);
     // Keep figures in deterministic components. If the model introduces any
     // numerical prose, use the computed template instead of displaying it.
     const hasFigures = /\p{N}|[₹%]|\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|lakh|crore|million|billion|percent|percentage)\b/iu.test(text);
@@ -51,7 +53,7 @@ export async function ollamaAvailable(): Promise<boolean> {
   }
 }
 
-async function ollamaNarrative(company: CompanyData, analysis: SwingAnalysis): Promise<string> {
+async function ollamaNarrative(company: CompanyData, analysis: SwingAnalysis, signal?: AbortSignal): Promise<string> {
   const res = await fetch(`${OLLAMA_URL}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -61,7 +63,7 @@ async function ollamaNarrative(company: CompanyData, analysis: SwingAnalysis): P
       stream: false,
       options: { temperature: 0.3, num_predict: 500 },
     }),
-    signal: AbortSignal.timeout(90_000),
+    signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(5_000)]) : AbortSignal.timeout(5_000),
   });
 
   if (!res.ok) throw new Error(`Ollama returned ${res.status}`);

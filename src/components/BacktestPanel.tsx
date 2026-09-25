@@ -6,13 +6,8 @@ import type { SymbolBacktest } from '@/lib/backtest';
 import SignalBuckets from './SignalBuckets';
 import { pct } from '@/lib/format';
 
-/**
- * The backtest now replays a stock's ENTIRE history, not a trailing window —
- * for an old, liquid name that's tens of thousands of days, each re-running the
- * full engine, which can take a minute or more (measured ~80s for RELIANCE on
- * a desktop). The API runs it as a background job rather than blocking the
- * request, so this polls for the result instead of a single fetch-and-wait.
- */
+// A history check is an explicit action. It can be expensive on a phone, so
+// loading a stock report must never start one as a side effect.
 type Resp =
   | { status: 'ready'; result: SymbolBacktest }
   | { status: 'pending'; startedAt: number }
@@ -20,71 +15,113 @@ type Resp =
   | { error: string };
 
 const POLL_MS = 2500;
+const REQUEST_TIMEOUT_MS = 20_000;
+const WAIT_LIMIT_MS = 180_000;
 
-export default function BacktestPanel({ query }: { query: string }) {
+export default function BacktestPanel({ query, autoRun = false }: { query: string; autoRun?: boolean }) {
   const [data, setData] = useState<SymbolBacktest | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [request, setRequest] = useState<{ startedAt: number; retry: boolean } | null>(() => autoRun ? { startedAt: Date.now(), retry: false } : null);
+  const [stopped, setStopped] = useState(false);
   const [now, setNow] = useState(() => Date.now());
-  const [attempt, setAttempt] = useState(0);
+
+  function start(retry = false) {
+    const startedAt = Date.now();
+    setData(null);
+    setError(null);
+    setStopped(false);
+    setNow(startedAt);
+    setRequest({ startedAt, retry });
+  }
+
+  function stopWaiting() {
+    setRequest(null);
+    setStopped(true);
+  }
 
   useEffect(() => {
+    if (!request) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let requestTimer: ReturnType<typeof setTimeout> | null = null;
+    let controller: AbortController | null = null;
+    let retryNextRequest = request.retry;
+
+    const deadline = setTimeout(() => {
+      cancelled = true;
+      controller?.abort();
+      if (timer) clearTimeout(timer);
+      setError('This check is taking longer than 3 minutes. It may still finish on the server. Try again to check for its result.');
+      setRequest(null);
+    }, Math.max(0, WAIT_LIMIT_MS - (Date.now() - request.startedAt)));
 
     const poll = async () => {
+      controller = new AbortController();
+      const timeout = setTimeout(() => controller?.abort(), REQUEST_TIMEOUT_MS);
+      requestTimer = timeout;
       try {
-        const res = await fetch(`/api/backtest?q=${encodeURIComponent(query)}`);
+        const retryParam = retryNextRequest ? '&retry=1' : '';
+        retryNextRequest = false;
+        const res = await fetch(`/api/backtest?q=${encodeURIComponent(query)}${retryParam}`, { signal: controller.signal });
         const json = (await res.json()) as Resp;
         if (cancelled) return;
 
         if (!res.ok || 'error' in json) {
-          setError('error' in json ? json.error : 'Backtest failed.');
+          setError('error' in json ? json.error : 'The history check could not finish.');
+          setRequest(null);
           return;
         }
         if (json.status === 'ready') {
           setData(json.result);
+          setRequest(null);
           return;
         }
-        setStartedAt(json.startedAt);
         timer = setTimeout(poll, POLL_MS);
       } catch {
-        if (!cancelled) setError('Could not run the backtest.');
+        if (cancelled) return;
+        // A long computation can temporarily delay the status response. Keep
+        // polling within the overall limit; the user can stop waiting at any time.
+        if (controller.signal.aborted) {
+          timer = setTimeout(poll, POLL_MS);
+          return;
+        }
+        setError('Could not reach the history check. Check your connection and try again.');
+        setRequest(null);
+      } finally {
+        clearTimeout(timeout);
       }
     };
 
-    (async () => {
-      setData(null);
-      setError(null);
-      setStartedAt(null);
-      await poll();
-    })();
+    void poll();
 
     return () => {
       cancelled = true;
+      controller?.abort();
+      clearTimeout(deadline);
+      if (requestTimer) clearTimeout(requestTimer);
       if (timer) clearTimeout(timer);
     };
-  }, [query, attempt]);
+  }, [query, request]);
 
-  // Ticks the elapsed-time readout while a job is in flight.
+  // Display real waiting time, not an invented completion estimate.
   useEffect(() => {
-    if (data || error) return;
+    if (!request) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [data, error]);
+  }, [request]);
 
-  if (error) return <div className="px-5 py-4"><p role="alert" className="text-sm text-[var(--muted)]">{error}</p><button onClick={() => setAttempt((value) => value + 1)} className="mt-3 min-h-11 rounded-lg border border-[var(--border)] px-4 text-sm">Retry backtest</button></div>;
+  if (error) return <div className="px-5 py-4"><p role="alert" className="text-sm text-[var(--muted)]">{error}</p><button type="button" onClick={() => start(true)} className="mt-3 min-h-11 rounded-lg border border-[var(--border)] px-4 text-sm">Retry history check</button></div>;
+  if (!request && !data) return <div className="p-5"><p className="mb-4 text-sm text-[var(--muted)]">{stopped ? 'You stopped waiting. A check already started may continue on the server; you can check for its result again.' : 'See past trades, returns and losses after assumed costs. The first check can take longer on a phone.'}</p><button type="button" onClick={() => start()} className="min-h-11 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--ink)]">{stopped ? 'Check for result' : 'Run history check'}</button></div>;
   if (!data) {
-    const elapsedS = startedAt ? Math.max(0, Math.round((now - startedAt) / 1000)) : 0;
+    const elapsedS = request ? Math.max(0, Math.floor((now - request.startedAt) / 1000)) : 0;
     return (
-      <div className="space-y-2 p-4" role="status">
-        <div aria-hidden="true" className="h-24 animate-pulse rounded-lg bg-[var(--surface-2)]" />
-        <p className="text-center text-xs text-[var(--muted)]">
-          Replaying the engine since this stock&apos;s listing, one trading day at a time — older,
-          long-listed names can take a minute or two the first time
-          {elapsedS > 4 ? ` (${elapsedS}s so far)` : ''}. Cached after that, so it&apos;s instant for
-          the rest of today.
-        </p>
+      <div className="space-y-3 p-5">
+        <p className="text-sm font-semibold" role="status">Running history check</p>
+        <p className="tnum text-2xl font-semibold" aria-live="off">{elapsedS}s <span className="text-sm font-normal text-[var(--muted)]">elapsed</span></p>
+        <p className="text-sm leading-relaxed text-[var(--muted)]">Replaying past trading days. The exact time depends on the stock&apos;s history and your device; a reliable time remaining is not available.</p>
+        {elapsedS >= 30 && <p className="text-sm text-[var(--muted)]" role="status">Still checking. You can read the rest of the report while this runs.</p>}
+        <button type="button" onClick={stopWaiting} className="min-h-11 rounded-lg border border-[var(--border)] px-4 text-sm">Stop waiting</button>
+        <p className="text-xs text-[var(--muted)]">Stops waiting on this screen. A check already started may continue on the server.</p>
       </div>
     );
   }

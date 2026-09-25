@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "node scripts/prepare-build-output.mjs && node scripts/verify-build-output.mjs",
     "build:termux": "next build --webpack",
+    "postbuild:termux": "node scripts/prepare-build-output.mjs && node scripts/verify-build-output.mjs",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",

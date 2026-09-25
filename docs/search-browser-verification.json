@@ -1,0 +1,80 @@
+{
+  "capturedAt": "2026-09-25T16:09:29.635Z",
+  "base": "http://localhost:3000",
+  "browser": "Chrome/154.0.8037.57",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "provenance": {
+    "IRFC.NS": {
+      "generatedAt": "2026-09-25T16:07:39.631Z",
+      "sourceDate": "2026-09-25",
+      "price": 79.95
+    },
+    "TCS.NS": {
+      "generatedAt": "2026-09-25T16:07:41.516Z",
+      "sourceDate": "2026-09-25",
+      "price": 2082
+    }
+  },
+  "notes": "Delayed and failed requests are simulated in Chrome DevTools. Successful report bodies are actual local API/Yahoo responses; no financial figures are invented. Live local API calls can use the 60-second server cache. Check durations include navigation and interaction, not only provider latency; this is desktop Chrome at a mobile viewport, not a physical-phone benchmark.",
+  "results": [
+    {
+      "name": "IRFC opens through the explicit Search button",
+      "mode": "live local API",
+      "passed": true,
+      "durationMs": 765,
+      "actualSymbol": "IRFC.NS"
+    },
+    {
+      "name": "Company-name search opens the same stock",
+      "mode": "live local API",
+      "passed": true,
+      "durationMs": 489
+    },
+    {
+      "name": "Keyboard autocomplete selects a company and focuses its report",
+      "mode": "live local API",
+      "passed": true,
+      "durationMs": 923
+    },
+    {
+      "name": "A delayed request shows actual seconds and Cancel prevents a late report",
+      "mode": "simulated 10-second transport hold",
+      "passed": true,
+      "durationMs": 11127,
+      "elapsedLabel": "10 seconds elapsed",
+      "transport": "Chrome had already cancelled the request"
+    },
+    {
+      "name": "A replacement search wins even when the older response arrives afterward",
+      "mode": "simulated overlapping transport requests",
+      "passed": true,
+      "durationMs": 1102,
+      "actualSymbol": "TCS.NS",
+      "lateOldResponse": "Chrome had already cancelled the request"
+    },
+    {
+      "name": "Client stops at 30 seconds and Retry can open the stock",
+      "mode": "simulated transport that never responds",
+      "passed": true,
+      "durationMs": 30595,
+      "observedWaitMs": 29990
+    },
+    {
+      "name": "Late autocomplete results cannot reopen the list after submission",
+      "mode": "simulated late autocomplete response",
+      "passed": true,
+      "durationMs": 8791,
+      "transport": "Chrome had already cancelled the request"
+    },
+    {
+      "name": "An autocomplete outage says suggestions are unavailable and preserves direct search",
+      "mode": "simulated search-provider 503",
+      "passed": true,
+      "durationMs": 808
+    }
+  ],
+  "errors": []
+}

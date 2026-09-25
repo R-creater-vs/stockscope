@@ -4,6 +4,8 @@ The frontend has been redesigned as NIVRA. This name is not cleared for adoption
 
 **Understand the setup. See the risk. Decide with clarity.**
 
+The [search and loading update](docs/search-and-loading.md) simplifies stock lookup, adds elapsed-time/cancel/retry controls, and makes history checks easier to find without blocking other searches.
+
 A research and decision-support app for Indian stocks. Search NSE/BSE listings, inspect eight
 weighted swing signals, compare timeframes, review model risk levels, and monitor saved stocks.
 The configured scan universe contains **165 NSE equities**; individual lookup also supports BSE,

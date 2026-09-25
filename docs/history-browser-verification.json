@@ -1,0 +1,94 @@
+{
+  "capturedAt": "2026-09-25T16:13:29.166Z",
+  "base": "http://localhost:3000",
+  "browser": "Chrome/154.0.8037.57",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "provenance": [
+    {
+      "symbol": "IRFC.NS",
+      "generatedAt": "2026-09-25T16:13:23.456Z",
+      "sourceDate": "2026-09-25",
+      "price": 79.95
+    },
+    {
+      "symbol": "TCS.NS",
+      "generatedAt": "2026-09-25T16:13:26.254Z",
+      "sourceDate": "2026-09-25",
+      "price": 2082
+    },
+    {
+      "symbol": "IRFC.NS",
+      "generatedAt": "2026-09-25T16:13:23.456Z",
+      "sourceDate": "2026-09-25",
+      "price": 79.95
+    }
+  ],
+  "notes": "All requests use actual local production API/Yahoo responses. No interception, fixture prices or invented figures. A desktop Chrome mobile viewport is not a physical phone. Timings may include provider or server caches; pending-before-search means the most recent observed history response was pending, not a claim about exact CPU overlap.",
+  "results": [
+    {
+      "name": "All timeframe scores, confidence and summaries match the actual IRFC response",
+      "passed": true,
+      "durationMs": 183,
+      "compared": [
+        {
+          "timeframe": "short",
+          "score": 24,
+          "confidence": 97,
+          "overflow": false
+        },
+        {
+          "timeframe": "mid",
+          "score": 5.5,
+          "confidence": 100,
+          "overflow": false
+        },
+        {
+          "timeframe": "long",
+          "score": 50.9,
+          "confidence": 52,
+          "overflow": false
+        }
+      ]
+    },
+    {
+      "name": "Report section navigation focuses its target without starting a history job",
+      "passed": true,
+      "durationMs": 12
+    },
+    {
+      "name": "Prominent Run history check focuses the history section and starts an actual job",
+      "passed": true,
+      "durationMs": 1492,
+      "initialStatus": "pending",
+      "elapsedText": "1s elapsed",
+      "note": "The API returned pending; elapsed text is observed browser waiting time."
+    },
+    {
+      "name": "A different stock can be searched after starting the history check",
+      "passed": true,
+      "durationMs": 826,
+      "actualSymbol": "TCS.NS",
+      "statusBeforeSearch": "pending",
+      "pendingOnScreen": true,
+      "searchElapsedMs": 825,
+      "concurrency": "Search began after a pending history response while the history waiting state remained visible."
+    },
+    {
+      "name": "Returning to IRFC shows actual historical trades, costs and the model limitation",
+      "passed": true,
+      "durationMs": 2819,
+      "symbol": "IRFC.NS",
+      "from": "2021-12-07",
+      "to": "2026-09-25",
+      "trades": 100,
+      "samples": 1183,
+      "roundTripCostPct": 0.2,
+      "expectancyR": -0.03549221926267298,
+      "resultGeneratedAt": "2026-09-25T16:13:26.744Z"
+    }
+  ],
+  "errors": []
+}

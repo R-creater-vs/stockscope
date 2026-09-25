@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import AppHeader, { NAV, type View } from '@/components/AppHeader';
 import SearchBar from '@/components/SearchBar';
+import ReportLoading, { REPORT_WAIT_MS } from '@/components/ReportLoading';
 import MarketOverview from '@/components/MarketOverview';
 import Discover from '@/components/Discover';
 import { OfflineNotice } from '@/components/DataStatus';
@@ -19,7 +20,7 @@ const StrategyStudy = dynamic(() => import('@/components/StrategyStudy'));
 
 const TITLES: Record<View, [string, string, string]> = {
   overview: ['THE BIG PICTURE', 'Clarity before your next move.', 'Understand the setup. See the risk. Decide with clarity.'],
-  discover: ['FIND YOUR NEXT RESEARCH', 'Less noise. More context.', 'Search NSE and BSE names, or explore the liquid NSE scan below.'],
+  discover: ['FIND A STOCK', 'Start with a company you know.', 'Search any NSE or BSE company, or browse the stocks below.'],
   watchlist: ['YOUR PERSONAL RADAR', 'Keep perspective on your list.', 'Monitor changing scores, price moves and the rules you are watching.'],
   alerts: ['MONITOR WITH INTENTION', 'Know what you’re waiting for.', 'Clear conditions. Useful context. Notifications on your terms.'],
   strategy: ['QUESTION THE EVIDENCE', 'The model has to earn your trust.', 'Inspect the historical record, assumptions and limits of every engine.'],
@@ -29,6 +30,7 @@ export default function Home() {
   const [view, setView] = useState<View>('overview');
   const [data, setData] = useState<AnalyzeResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState({ query: '', startedAt: 0 });
   const [refreshing, setRefreshing] = useState(false);
   const [reportSearch, setReportSearch] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -36,16 +38,18 @@ export default function Home() {
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const request = useRef<AbortController | null>(null);
   const { items: watched } = useWatchlist();
-  const screen = useScreen();
+  const screen = useScreen(!loading && !data && (view === 'overview' || view === 'discover'));
   const heading = useRef<HTMLHeadingElement>(null);
 
   const analyse = useCallback(async (query: string, opts?: { silent?: boolean; history?: boolean }) => {
     request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
+    let timedOut = false;
+    const deadline = setTimeout(() => { timedOut = true; controller.abort(); }, REPORT_WAIT_MS);
     const silent = opts?.silent ?? false;
     if (silent) setRefreshing(true);
-    else { setLoading(true); setRefreshing(false); setReportSearch(false); window.scrollTo({ top: 0, behavior: 'instant' }); }
+    else { setSearch({ query, startedAt: Date.now() }); setData(null); setLoading(true); setRefreshing(false); setReportSearch(false); window.scrollTo({ top: 0, behavior: 'instant' }); }
     setError(null);
     if (!silent && opts?.history !== false) {
       const url = new URL(window.location.href);
@@ -56,21 +60,22 @@ export default function Home() {
       const res = await fetch(`/api/analyze?q=${encodeURIComponent(query)}${silent ? '&fresh=1' : ''}`, { signal: controller.signal });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? 'The report could not be loaded.');
-      if (controller.signal.aborted) return;
+      if (request.current !== controller || controller.signal.aborted) return;
       setData(json);
       if (silent) setRefreshKey(k => k + 1);
       else requestAnimationFrame(() => document.querySelector<HTMLElement>('#report-region h1')?.focus());
     } catch (err) {
-      if (controller.signal.aborted) return;
-      setError(err instanceof Error && err.message !== 'Failed to fetch' ? err.message : 'Could not reach the server. Check your connection and try again.');
+      if (request.current !== controller || (controller.signal.aborted && !timedOut)) return;
+      setError(timedOut ? 'The report did not arrive within 30 seconds. The data source may be slow or unavailable. Try again.' : err instanceof Error && err.message !== 'Failed to fetch' ? err.message : 'Could not reach the server. Check your connection and try again.');
       if (!silent) setData(null);
     } finally {
-      if (!controller.signal.aborted) { setLoading(false); setRefreshing(false); }
+      clearTimeout(deadline);
+      if (request.current === controller) { request.current = null; setLoading(false); setRefreshing(false); }
     }
   }, []);
 
   const navigate = useCallback((next: View) => {
-    request.current?.abort(); setData(null); setError(null); setLoading(false); setRefreshing(false); setReportSearch(false); setView(next);
+    request.current?.abort(); request.current = null; setData(null); setError(null); setLoading(false); setRefreshing(false); setReportSearch(false); setView(next);
     window.history.pushState({}, '', `/?view=${next}`);
     window.scrollTo({ top: 0, behavior: 'instant' });
     requestAnimationFrame(() => heading.current?.focus());
@@ -84,7 +89,7 @@ export default function Home() {
       else setView('overview');
       const symbol = params.get('symbol');
       if (symbol) void analyse(symbol, { history: false });
-      else { request.current?.abort(); setData(null); setError(null); setLoading(false); setRefreshing(false); }
+      else { request.current?.abort(); request.current = null; setData(null); setError(null); setLoading(false); setRefreshing(false); }
       const auth = params.get('auth');
       if (auth) {
         setAuthMessage(auth === 'success' ? 'Signed in. Your watchlist and alerts are synced to your account.' : auth === 'setup' ? 'Sign-in is not available on this deployment. Your device workspace is still available.' : 'Sign-in did not complete. You can try again from the account menu.');
@@ -113,10 +118,10 @@ export default function Home() {
       <OfflineNotice />
       {authMessage && <div className="notice" role="status"><span>{authMessage}</span><button onClick={() => setAuthMessage(null)} aria-label="Dismiss sign-in message"><Icon name="close" /></button></div>}
       {!showingReport && !loading && <div className="page-heading"><span className="eyebrow">{title[0]}</span><h1 ref={heading} tabIndex={-1}>{title[1]}</h1><p>{title[2]}</p></div>}
-      {(showingReport || loading) && <div className="report-toolbar"><button className="btn-glass" onClick={() => navigate(view)}>← Back to {view === 'strategy' ? 'evidence' : view}</button><div><button className="btn-glass" aria-label="Search another company" aria-expanded={reportSearch} aria-controls="workspace-search" onClick={() => setReportSearch(open => !open)}><Icon name="search" /></button>{data && <><span className="fine-print">Report computed {new Date(data.generatedAt).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })} IST</span><button className="btn-glass" disabled={refreshing || loading} onClick={() => void analyse(data.company.profile.symbol, { silent: true })}><Icon name="refresh" />{refreshing ? 'Refreshing' : 'Refresh'}</button></>}</div></div>}
-      <div id="workspace-search" hidden={(showingReport || loading) && !reportSearch} className={`workspace-search ${view !== 'discover' || showingReport || loading ? 'compact-search' : ''}`}><SearchBar onSelect={analyse} loading={loading} /></div>
+      {(showingReport || loading) && <div className="report-toolbar"><button className="btn-glass" onClick={() => navigate(view)}>← Back</button><div><button className="btn-glass" aria-label="Search another company" aria-expanded={reportSearch} aria-controls="workspace-search" onClick={() => setReportSearch(open => !open)}><Icon name="search" />Search</button>{data && <><span className="fine-print">Report computed {new Date(data.generatedAt).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })} IST</span><button className="btn-glass" disabled={refreshing || loading} onClick={() => void analyse(data.company.profile.symbol, { silent: true })}><Icon name="refresh" />{refreshing ? 'Refreshing' : 'Refresh'}</button></>}</div></div>}
+      <div id="workspace-search" hidden={(showingReport || loading) && !reportSearch} className={`workspace-search ${view !== 'discover' || showingReport || loading ? 'compact-search' : ''}`}><SearchBar onSelect={analyse} /></div>
       {error && <div className="notice" role="alert"><span>{error} {data && 'The previous report is still shown; it may be stale.'}</span><button onClick={() => { const q = new URLSearchParams(window.location.search).get('symbol'); if (q) void analyse(q, { history: false, silent: Boolean(data) }); }}>Try again</button></div>}
-      {loading && <ReportSkeleton />}
+      {loading && <ReportLoading key={search.startedAt} {...search} onCancel={() => navigate(view)} />}
       <div hidden={showingReport || loading}>
         {view === 'overview' && <MarketOverview {...screen} onSelect={analyse} onDiscover={() => navigate('discover')} onEvidence={() => navigate('strategy')} />}
         <div hidden={view !== 'discover'}><Discover {...screen} onSelect={analyse} /></div>

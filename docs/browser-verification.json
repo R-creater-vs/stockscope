@@ -1,5 +1,5 @@
 {
-  "capturedAt": "2026-09-25T14:12:04.931Z",
+  "capturedAt": "2026-09-25T16:08:28.596Z",
   "base": "http://localhost:3000",
   "browser": "Chrome/154.0.8037.57",
   "results": [
@@ -35,9 +35,7 @@
       "accessibility": {
         "violations": [],
         "passes": 27,
-        "incomplete": [
-          "aria-prohibited-attr"
-        ]
+        "incomplete": []
       }
     },
     {
@@ -52,7 +50,7 @@
       },
       "accessibility": {
         "violations": [],
-        "passes": 26,
+        "passes": 27,
         "incomplete": [
           "color-contrast"
         ]
@@ -63,14 +61,14 @@
       "view": "watchlist",
       "layout": {
         "width": 1440,
-        "documentWidth": 1440,
+        "documentWidth": 1432,
         "overflow": false,
         "h1s": 1,
         "smallTargets": []
       },
       "accessibility": {
         "violations": [],
-        "passes": 26,
+        "passes": 27,
         "incomplete": [
           "color-contrast"
         ]
@@ -104,7 +102,7 @@
       },
       "accessibility": {
         "violations": [],
-        "passes": 25,
+        "passes": 26,
         "incomplete": []
       }
     },
@@ -139,11 +137,8 @@
       },
       "accessibility": {
         "violations": [],
-        "passes": 28,
-        "incomplete": [
-          "aria-prohibited-attr",
-          "color-contrast"
-        ]
+        "passes": 27,
+        "incomplete": []
       }
     },
     {
@@ -158,7 +153,7 @@
       },
       "accessibility": {
         "violations": [],
-        "passes": 26,
+        "passes": 27,
         "incomplete": [
           "color-contrast"
         ]
@@ -176,7 +171,7 @@
       },
       "accessibility": {
         "violations": [],
-        "passes": 26,
+        "passes": 27,
         "incomplete": [
           "color-contrast"
         ]
@@ -210,7 +205,7 @@
       },
       "accessibility": {
         "violations": [],
-        "passes": 25,
+        "passes": 26,
         "incomplete": []
       }
     },
@@ -292,38 +287,38 @@
         {
           "view": "overview",
           "cache": "browser cache disabled; server and source caches warm; no CPU or network throttle",
-          "observedAt": 598.5999999999767,
-          "lcp": 96,
+          "observedAt": 585.2999999998137,
+          "lcp": 88,
           "cls": 0,
           "longTasks": 0,
           "longTaskOver50Ms": 0,
           "navigation": [
             {
-              "domContentLoaded": 29.20000000006985,
-              "responseEnd": 8.800000000046566,
-              "load": 89.70000000006985
+              "domContentLoaded": 83.40000000037253,
+              "responseEnd": 12.799999999813735,
+              "load": 91.29999999981374
             }
           ],
-          "scriptTransferBytes": 156818,
-          "scriptDecodedBytes": 543038
+          "scriptTransferBytes": 142112,
+          "scriptDecodedBytes": 474743
         },
         {
           "view": "report",
           "cache": "browser cache disabled; server and source caches warm; no CPU or network throttle",
-          "observedAt": 855.6000000000931,
-          "lcp": 468,
+          "observedAt": 862.6000000005588,
+          "lcp": 48,
           "cls": 0,
           "longTasks": 1,
-          "longTaskOver50Ms": 2,
+          "longTaskOver50Ms": 21,
           "navigation": [
             {
-              "domContentLoaded": 32,
-              "responseEnd": 7.600000000093132,
-              "load": 69.80000000004657
+              "domContentLoaded": 26.300000000745058,
+              "responseEnd": 7.800000000745058,
+              "load": 47.40000000037253
             }
           ],
-          "scriptTransferBytes": 305429,
-          "scriptDecodedBytes": 1051273
+          "scriptTransferBytes": 287492,
+          "scriptDecodedBytes": 960147
         }
       ]
     }

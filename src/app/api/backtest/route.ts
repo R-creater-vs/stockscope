@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: `Could not find "${query}".` }, { status: 404 });
     }
 
-    const status = getOrStartBacktest(match.symbol, match);
+    const retryFailed = req.nextUrl.searchParams.get('retry') === '1';
+    const status = getOrStartBacktest(match.symbol, match, retryFailed);
     if (status.status === 'ready') {
       return NextResponse.json({ status: 'ready', ...status.payload });
     }

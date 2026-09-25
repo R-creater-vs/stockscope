@@ -16,7 +16,7 @@
 
 import type { SymbolMatch } from './providers';
 import { fetchBars } from './providers';
-import { backtestSymbol, DEFAULT_CONFIG } from './backtest';
+import { backtestSymbolAsync, DEFAULT_CONFIG, type SymbolBacktest } from './backtest';
 import { loadBacktestCache, saveBacktestCache } from './db';
 
 // Daily bars change once a trading day — no value in ever recomputing more
@@ -26,7 +26,7 @@ const FRESH_MS = 20 * 60 * 60 * 1000;
 
 export interface BacktestPayload {
   match: SymbolMatch;
-  result: ReturnType<typeof backtestSymbol>;
+  result: SymbolBacktest;
   generatedAt: string;
 }
 
@@ -49,11 +49,16 @@ const jobs = new Map<string, JobState>();
  * first ask for this symbol in this process), starts a background job if we
  * don't, and always returns immediately — never awaits the computation itself.
  */
-export function getOrStartBacktest(symbol: string, match: SymbolMatch): BacktestStatus {
+export function getOrStartBacktest(symbol: string, match: SymbolMatch, retryFailed = false): BacktestStatus {
   const job = jobs.get(symbol);
   if (job?.status === 'done' && job.payload) return { status: 'ready', payload: job.payload };
   if (job?.status === 'running') return { status: 'pending', startedAt: job.startedAt };
-  if (job?.status === 'error') jobs.delete(symbol); // let a failed job be retried
+  if (job?.status === 'error') {
+    // Polling must surface a failed job rather than silently restart it forever.
+    // Only an explicit Retry action starts another attempt.
+    if (!retryFailed) return { status: 'error', error: job.error ?? 'The history check failed. Please retry.' };
+    jobs.delete(symbol);
+  }
 
   const persisted = loadBacktestCache(symbol);
   if (persisted && Date.now() - new Date(persisted.generatedAt).getTime() < FRESH_MS) {
@@ -86,7 +91,7 @@ async function runJob(symbol: string, match: SymbolMatch): Promise<void> {
       return;
     }
 
-    const result = backtestSymbol(resolved, bars);
+    const result = await backtestSymbolAsync(resolved, bars);
     const payload: BacktestPayload = {
       match: { ...match, symbol: resolved },
       result,

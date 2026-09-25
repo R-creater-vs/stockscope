@@ -16,34 +16,79 @@ import MoneyCheck from './MoneyCheck';
 import { AnalystPanel, FundamentalsPanel, KeyMetrics, LevelsPanel, RiskPanel, StockHeader } from './StatsPanels';
 const PriceChart = dynamic(() => import('./PriceChart'), { loading: () => <div className="h-80 skeleton-row" role="status">Loading price chart</div> });
 const LiveChart = dynamic(() => import('./LiveChart'));
-const BacktestPanel = dynamic(() => import('./BacktestPanel'));
+const BacktestPanel = dynamic(() => import('./BacktestPanel'), { loading: () => <p className="p-5 text-sm text-[var(--muted)]" role="status">Opening history check…</p> });
+
+const REPORT_SECTIONS = [
+  ['summary', 'Summary'],
+  ['price', 'Price chart'],
+  ['signals', 'Why this score'],
+  ['risk', 'Risk & plan'],
+  ['history', 'History check'],
+  ['company', 'Company'],
+] as const;
 
 export default function Report({ data, refreshKey }: { data: AnalyzeResponse; refreshKey: number }) {
   const { analysis, company, timeframes } = data;
   const [horizon, setHorizon] = useState<Timeframe>('short');
+  const [historyStarted, setHistoryStarted] = useState(false);
   const active = timeframes[horizon];
   useEffect(() => { document.querySelector<HTMLElement>('#report-region h1')?.focus(); }, [company.profile.symbol]);
+
+  function goToSection(section: string) {
+    const target = document.getElementById(`report-${section}`);
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: 'start' });
+  }
+
+  function runHistory() {
+    setHistoryStarted(true);
+    goToSection('history');
+  }
 
   return (
     <div className="mt-6 space-y-5 animate-fade-up">
       <StockHeader key={`${company.profile.symbol}:${data.generatedAt}`} company={company} />
       {data.match.switchedFrom && <p className="notice">The source returned insufficient history for {data.match.switchedFrom}. This report uses {company.profile.symbol} on NSE for both price and analysis.</p>}
 
-      {/* One stock, three horizons. The tabs preview each verdict so agreement
-          (or disagreement) between timeframes is visible at a glance. */}
-      <TimeframeTabs timeframes={timeframes} active={horizon} onChange={setHorizon} />
+      <nav aria-label="Stock report sections" className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+        {REPORT_SECTIONS.map(([id, label]) => <button key={id} type="button" onClick={() => goToSection(id)} className="min-h-11 rounded-lg border border-[var(--border)] px-2 py-2 text-sm text-[var(--muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--foreground)]">{label}</button>)}
+      </nav>
+
+      <section id="report-summary" tabIndex={-1} aria-label="Stock summary" className="scroll-mt-6 space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">The quick read</h2>
+        <label className="flex w-full min-w-0 items-center gap-2 text-sm text-[var(--muted)] sm:w-auto">Timeframe
+          <select value={horizon} onChange={(event) => setHorizon(event.target.value as Timeframe)} className="min-h-11 min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-[var(--foreground)]">
+            {(['short', 'mid', 'long'] as const).map((id) => <option key={id} value={id}>{timeframes[id].label} · {timeframes[id].horizon}</option>)}
+          </select>
+        </label>
+      </div>
       <VerdictCard tf={active} />
+      {horizon === 'long' && company.dataStatus?.fundamentals === 'unavailable' && <p className="notice">Some fundamentals are unavailable, so this long-term assessment may be incomplete. Refresh the report to try again.</p>}
       <p className="report-summary">{active.summary}</p>
+
+      <div className="flex flex-col items-start justify-between gap-3 border-y border-[var(--border)] py-4 sm:flex-row sm:items-center">
+        <div><p className="text-sm font-semibold">How did this strategy perform on this stock?</p><p className="mt-1 text-sm text-[var(--muted)]">Check past trades, losses and assumed costs.</p></div>
+        <button type="button" onClick={runHistory} className="min-h-11 shrink-0 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--ink)]">{historyStarted ? 'View history check' : 'Run history check'}</button>
+      </div>
 
       {horizon === 'short' && <Collapsible title="Expanded read" subtitle={data.narrative.source === 'ollama' ? 'AI-written, unverified explanation; figures come from the deterministic engine' : 'Rule-based explanation'}><Narrative text={data.narrative.text} source={data.narrative.source} /></Collapsible>}
 
-      {horizon !== 'long' && <WeeklyContext weekly={analysis.weekly} />}
+      <Collapsible title="Compare timeframes" subtitle="See where the short, mid and long-term views agree"><div className="p-4"><TimeframeTabs timeframes={timeframes} active={horizon} onChange={setHorizon} /></div></Collapsible>
 
-      <Collapsible title="Intraday context" subtitle="Yahoo delayed prices; refresh frequency is not data freshness"><LiveChart key={company.profile.symbol} symbol={company.profile.symbol} fallbackPrice={company.quote.price} /></Collapsible>
+      {horizon !== 'long' && <Collapsible title="Does the weekly trend agree?" subtitle="A wider view of the same stock"><WeeklyContext weekly={analysis.weekly} /></Collapsible>}
+      </section>
 
+      <section id="report-price" tabIndex={-1} aria-label="Price chart" className="scroll-mt-6 space-y-4">
       <PriceChart bars={data.bars} levels={analysis.levels} plan={active.tradePlan} />
-      <SignalList signals={active.signals} score={active.score} timeframe={horizon} />
+      <Collapsible title="Today's price movement" subtitle="Yahoo delayed prices; refresh frequency is not data freshness"><LiveChart key={company.profile.symbol} symbol={company.profile.symbol} fallbackPrice={company.quote.price} /></Collapsible>
+      </section>
 
+      <section id="report-signals" tabIndex={-1} aria-label="Why this score" className="scroll-mt-6">
+      <SignalList signals={active.signals} score={active.score} timeframe={horizon} />
+      </section>
+
+      <section id="report-risk" tabIndex={-1} aria-label="Risk and trade plan" className="scroll-mt-6 space-y-4">
       {active.tradePlan ? (
         <TradePlanCard plan={active.tradePlan} verdict={active.verdict} price={company.quote.price} />
       ) : (
@@ -61,27 +106,28 @@ export default function Report({ data, refreshKey }: { data: AnalyzeResponse; re
 
       <RiskPanel flags={active.riskFlags} />
 
+      <Collapsible title="Price alerts" subtitle="Choose a condition to monitor for this stock">
+        <AlertControls symbol={company.profile.symbol} name={company.profile.name} />
+      </Collapsible>
+      </section>
+
+      <section id="report-history" tabIndex={-1} aria-labelledby="report-history-title" className="scroll-mt-6 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+        <header className="border-b border-[var(--border)] px-5 py-4">
+          <h2 id="report-history-title" className="text-lg font-semibold">History check</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">Replay the short-term strategy over this stock&apos;s available history. Past performance does not predict future returns.</p>
+        </header>
+        {historyStarted ? <BacktestPanel key={company.profile.symbol} query={company.profile.symbol} autoRun /> : <div className="p-5"><p className="mb-4 text-sm text-[var(--muted)]">See the number of trades, win rate, largest decline and returns after assumed costs. The first check can take longer on a phone; elapsed time is shown while it runs.</p><button type="button" onClick={runHistory} className="min-h-11 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--ink)]">Run history check</button></div>}
+      </section>
+
+      <section id="report-company" tabIndex={-1} aria-labelledby="report-company-title" className="scroll-mt-6 space-y-4">
+      <div><h2 id="report-company-title" className="text-lg font-semibold">Company & deeper research</h2><p className="mt-1 text-sm text-[var(--muted)]">News, business details and the numbers behind the report.</p></div>
+      {company.dataStatus?.fundamentals === 'unavailable' && <p className="notice">{company.dataStatus.message ?? 'Company details did not arrive in time. The report still shows available price history and technical analysis; unavailable figures are left blank.'}</p>}
+
       <Collapsible
         title="Latest news"
         subtitle="What may be moving the price — the context the chart can't show"
-        defaultOpen
       >
         <NewsPanel company={company.profile.name} refreshKey={refreshKey} />
-      </Collapsible>
-
-      <Collapsible
-        title="Price alerts"
-        subtitle="Define a delayed-data condition and review exactly what triggers it"
-      >
-        <AlertControls symbol={company.profile.symbol} name={company.profile.name} />
-      </Collapsible>
-
-
-      <Collapsible
-        title="Backtest — has the short-term engine worked before?"
-        subtitle="The swing engine replayed over available history, with assumed costs"
-      >
-        <BacktestPanel query={company.profile.symbol} />
       </Collapsible>
 
       {/* Everything below is context rather than decision input, so it starts
@@ -116,6 +162,7 @@ export default function Report({ data, refreshKey }: { data: AnalyzeResponse; re
           </p>
         </Collapsible>
       )}
+      </section>
 
       <Disclaimer generatedAt={data.generatedAt} />
     </div>

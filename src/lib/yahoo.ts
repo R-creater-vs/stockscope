@@ -8,19 +8,58 @@
  */
 
 import YahooFinance from 'yahoo-finance2';
+import { ExtendedCookieJar } from 'yahoo-finance2/lib/cookieJar';
 import type { Bar } from './indicators';
+import { UNIVERSE } from './universe';
+import { withDeadline, type DataRequestOptions } from './providerRequest';
 
-const yf = new YahooFinance({
-  suppressNotices: ['yahooSurvey', 'ripHistorical'],
+const yahooOptions = {
+  suppressNotices: ['yahooSurvey', 'ripHistorical'] as ('yahooSurvey' | 'ripHistorical')[],
   // Yahoo's response shape drifts for thinly-traded Indian listings (a null
   // `currency`, a missing `regularMarketPrice`). The library throws on that even
   // when the price rows themselves are fine, so we silence the logging and
   // salvage the payload from the error below.
   validation: { logErrors: false, logOptionsErrors: false, allowAdditionalProps: true },
-  // The screener fetches ~130 series per scan; the default of 4 makes that
-  // needlessly slow, and 8 stays comfortably under Yahoo's rate limiting.
-  queue: { concurrency: 8 },
-});
+  // Each actual HTTP exchange is abortable even for a large background study.
+  // Its queue may legitimately take longer than an interactive stock request.
+  fetch: (input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, {
+    ...init,
+    signal: init?.signal
+      ? AbortSignal.any([init.signal, AbortSignal.timeout(12_000)])
+      : AbortSignal.timeout(12_000),
+  }),
+};
+
+// A scan can enqueue an entire universe. Give user-requested reports and
+// lookups their own small lane so they never sit behind those chart requests.
+// Both lanes still have bounded concurrency and transport deadlines.
+const yf = new YahooFinance({ ...yahooOptions, cookieJar: new ExtendedCookieJar(), queue: { concurrency: 6 } });
+const interactiveYf = new YahooFinance({ ...yahooOptions, cookieJar: new ExtendedCookieJar(), queue: { concurrency: 4 } });
+const clientFor = (options?: DataRequestOptions) => options?.priority === 'interactive' ? interactiveYf : yf;
+const requestOptions = (signal: AbortSignal) => ({ fetchOptions: { signal } });
+
+function normaliseName(value: string): string {
+  return value.toLowerCase().replace(/\.(ns|bo)$/, '').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+/** This directory supplies identity only. Prices and figures always come from Yahoo. */
+function directoryMatches(query: string): SymbolMatch[] {
+  const normalized = normaliseName(query);
+  if (!normalized || /\.BO$/i.test(query.trim())) return [];
+  const tokens = normalized.split(' ');
+  return UNIVERSE.filter((entry) => {
+    const text = normaliseName(`${entry.symbol.replace(/\.NS$/, '')} ${entry.name}`);
+    return tokens.every((token) => text.includes(token));
+  }).sort((a, b) => Number(normaliseName(b.symbol) === normalized) - Number(normaliseName(a.symbol) === normalized))
+    .map(({ symbol, name }) => ({ symbol, name, exchange: 'NSE' as const }));
+}
+
+const identityCache = new Map<string, { value: SymbolMatch; at: number }>();
+const IDENTITY_TTL = 24 * 60 * 60 * 1000;
+function rememberIdentity(match: SymbolMatch) {
+  if (identityCache.size >= 500) identityCache.delete(identityCache.keys().next().value!);
+  identityCache.set(match.symbol, { value: match, at: Date.now() });
+}
 
 export interface SymbolMatch {
   symbol: string;
@@ -86,8 +125,14 @@ export interface AnalystView {
 }
 
 /** Only Indian listings — everything else is noise for this app. */
-export async function searchIndian(query: string): Promise<SymbolMatch[]> {
-  const res = await yf.search(query, { quotesCount: 15, newsCount: 0 });
+export async function searchIndian(query: string, options?: DataRequestOptions): Promise<SymbolMatch[]> {
+  options?.signal?.throwIfAborted();
+  const local = directoryMatches(query);
+  // Common Indian names/tickers resolve instantly even during a scan. Names
+  // outside this directory still use Yahoo's broader NSE/BSE search.
+  if (local.length) return local.slice(0, 15);
+  const res = await withDeadline((signal) => interactiveYf.search(query,
+    { quotesCount: 15, newsCount: 0 }, requestOptions(signal)), 5_000, options?.signal);
   const out: SymbolMatch[] = [];
 
   for (const q of res.quotes ?? []) {
@@ -97,11 +142,13 @@ export async function searchIndian(query: string): Promise<SymbolMatch[]> {
     if (rec.quoteType !== 'EQUITY') continue;
     if (!symbol.endsWith('.NS') && !symbol.endsWith('.BO')) continue;
 
-    out.push({
+    const match: SymbolMatch = {
       symbol,
       name: String(rec.shortname ?? rec.longname ?? symbol),
       exchange: symbol.endsWith('.NS') ? 'NSE' : 'BSE',
-    });
+    };
+    rememberIdentity(match);
+    out.push(match);
   }
   return out;
 }
@@ -111,13 +158,20 @@ export async function searchIndian(query: string): Promise<SymbolMatch[]> {
  * ("RELIANCE"), a suffixed one ("TCS.NS"), or a company name ("tata motors").
  * NSE is preferred over BSE — better liquidity, and it's what swing traders use.
  */
-export async function resolveSymbol(input: string): Promise<SymbolMatch | null> {
+export async function resolveSymbol(input: string, options?: DataRequestOptions): Promise<SymbolMatch | null> {
   const raw = input.trim();
   if (!raw) return null;
+  options?.signal?.throwIfAborted();
+  const known = identityCache.get(raw.toUpperCase());
+  if (known && Date.now() - known.at < IDENTITY_TTL) return known.value;
+  const normalized = normaliseName(raw);
+  const local = directoryMatches(raw);
+  const exact = local.find((match) => normaliseName(match.symbol) === normalized || normaliseName(match.name) === normalized);
+  if (exact) return exact;
 
   if (/\.(NS|BO)$/i.test(raw)) {
     const symbol = raw.toUpperCase();
-    const name = await symbolName(symbol);
+    const name = await symbolName(symbol, options);
     if (name) return { symbol, name, exchange: symbol.endsWith('.NS') ? 'NSE' : 'BSE' };
   }
 
@@ -125,21 +179,27 @@ export async function resolveSymbol(input: string): Promise<SymbolMatch | null> 
   // before falling back to fuzzy search, which can drift to the wrong company.
   if (/^[A-Za-z&-]{2,20}$/.test(raw)) {
     const symbol = `${raw.toUpperCase()}.NS`;
-    const name = await symbolName(symbol);
+    const name = await symbolName(symbol, options);
     if (name) return { symbol, name, exchange: 'NSE' };
   }
 
-  const matches = await searchIndian(raw);
+  const matches = await searchIndian(raw, options);
   return matches.find((m) => m.exchange === 'NSE') ?? matches[0] ?? null;
 }
 
-async function symbolName(symbol: string): Promise<string | null> {
+async function symbolName(symbol: string, options?: DataRequestOptions): Promise<string | null> {
   try {
-    const q = await yf.quote(symbol);
+    const q = await withDeadline((signal) => interactiveYf.quote(symbol, {}, requestOptions(signal)), 6_000, options?.signal);
     if (!q?.regularMarketPrice) return null;
-    return q.longName ?? q.shortName ?? symbol;
-  } catch {
-    return null;
+    const name = q.longName ?? q.shortName ?? symbol;
+    rememberIdentity({ symbol, name, exchange: symbol.endsWith('.NS') ? 'NSE' : 'BSE' });
+    return name;
+  } catch (error) {
+    // A failed connection is not evidence that a company does not exist.
+    options?.signal?.throwIfAborted();
+    const code = (error as { code?: unknown }).code;
+    if (error instanceof Error && (error.name === 'NotFoundError' || code === 404)) return null;
+    throw error;
   }
 }
 
@@ -203,7 +263,7 @@ function spanToDates(span: FetchSpan): { period1: Date; period2?: Date } {
   return { period1: from };
 }
 
-async function fetchBarsFor(symbol: string, span: FetchSpan): Promise<Bar[]> {
+async function fetchBarsFor(symbol: string, span: FetchSpan, request?: DataRequestOptions): Promise<Bar[]> {
   const { period1, period2 } = spanToDates(span);
 
   // Only include `period2` when it exists — yahoo-finance2 validates the options
@@ -214,7 +274,8 @@ async function fetchBarsFor(symbol: string, span: FetchSpan): Promise<Bar[]> {
     : { period1, interval: '1d' as const };
 
   try {
-    const chart = await yf.chart(symbol, options);
+    const chart = await withDeadline((signal) => clientFor(request).chart(symbol, options, requestOptions(signal)),
+      request?.priority === 'interactive' ? 12_000 : 120_000, request?.signal);
     return toBars((chart.quotes ?? []) as RawQuoteRow[]);
   } catch (err) {
     const salvaged = salvageQuotes(err);
@@ -238,14 +299,17 @@ const MIN_BARS = 60;
 export async function fetchBars(
   symbol: string,
   span: number | FetchSpan = 2,
+  options?: DataRequestOptions,
 ): Promise<{ bars: Bar[]; symbol: string; switchedFrom?: string }> {
   const s: FetchSpan = typeof span === 'number' ? { years: span } : span;
 
   let bars: Bar[] = [];
+  let originalError: unknown;
   try {
-    bars = await fetchBarsFor(symbol, s);
-  } catch {
-    bars = [];
+    bars = await fetchBarsFor(symbol, s, options);
+  } catch (error) {
+    options?.signal?.throwIfAborted();
+    originalError = error;
   }
 
   if (bars.length >= MIN_BARS) return { bars, symbol };
@@ -253,15 +317,18 @@ export async function fetchBars(
   if (symbol.endsWith('.BO')) {
     const nse = `${symbol.slice(0, -3)}.NS`;
     try {
-      const alt = await fetchBarsFor(nse, s);
+      const alt = await fetchBarsFor(nse, s, options);
       if (alt.length >= MIN_BARS) {
         return { bars: alt, symbol: nse, switchedFrom: symbol };
       }
-    } catch {
+    } catch (error) {
+      options?.signal?.throwIfAborted();
+      originalError ??= error;
       // Fall through and report on the original symbol.
     }
   }
 
+  if (!bars.length && originalError) throw originalError;
   return { bars, symbol };
 }
 
@@ -294,7 +361,7 @@ export async function fetchIntraday(symbol: string): Promise<Intraday> {
   let quotes: RawQuoteRow[] = [];
   let meta: Record<string, unknown> = {};
   try {
-    const chart = await yf.chart(symbol, { period1, interval: '5m' });
+    const chart = await withDeadline((signal) => interactiveYf.chart(symbol, { period1, interval: '5m' }, requestOptions(signal)), 12_000);
     quotes = (chart.quotes ?? []) as RawQuoteRow[];
     meta = (chart.meta ?? {}) as unknown as Record<string, unknown>;
   } catch (err) {
@@ -340,17 +407,20 @@ export interface CompanyData {
   fundamentals: Fundamentals;
   analyst: AnalystView;
   earnings: Earnings;
+  /** Optional fields may be unavailable without blocking the price report. */
+  dataStatus?: { fundamentals: 'available' | 'unavailable'; message?: string };
 }
 
-export async function fetchCompany(symbol: string): Promise<CompanyData> {
-  const quote = await yf.quote(symbol);
-  if (!quote?.regularMarketPrice) throw new Error(`No market data for ${symbol}`);
+export async function fetchCompany(symbol: string, options?: DataRequestOptions): Promise<CompanyData> {
+  const client = options?.priority === 'background' ? yf : interactiveYf;
+  // Start the required quote first: Yahoo shares cookie/crumb initialization
+  // within a lane, which must not inherit the shorter optional-summary timer.
+  const quoteTask = withDeadline((signal) => client.quote(symbol, {}, requestOptions(signal)), 12_000, options?.signal);
 
   // quoteSummary is the flaky part of the API for Indian tickers — a failure
   // here should degrade the report, not kill it.
-  let summary: Record<string, Record<string, unknown> | undefined> = {};
-  try {
-    summary = (await yf.quoteSummary(symbol, {
+  let summaryAvailable = true;
+  const summaryTask = withDeadline((signal) => client.quoteSummary(symbol, {
       modules: [
         'assetProfile',
         'summaryDetail',
@@ -359,10 +429,17 @@ export async function fetchCompany(symbol: string): Promise<CompanyData> {
         'recommendationTrend',
         'calendarEvents',
       ],
-    })) as unknown as Record<string, Record<string, unknown> | undefined>;
-  } catch {
-    summary = {};
-  }
+    }, requestOptions(signal)), 4_000, options?.signal).catch(() => {
+      summaryAvailable = false;
+      return {};
+    });
+  const [quote, rawSummary] = await Promise.all([
+    quoteTask,
+    summaryTask,
+  ]);
+  options?.signal?.throwIfAborted();
+  if (!quote?.regularMarketPrice) throw new Error(`No market data for ${symbol}`);
+  const summary = rawSummary as Record<string, Record<string, unknown> | undefined>;
 
   const asset = summary.assetProfile ?? {};
   const detail = summary.summaryDetail ?? {};
@@ -432,6 +509,9 @@ export async function fetchCompany(symbol: string): Promise<CompanyData> {
       strongSell: trend.strongSell ?? 0,
     },
     earnings: parseEarnings(calendar),
+    dataStatus: summaryAvailable
+      ? { fundamentals: 'available' }
+      : { fundamentals: 'unavailable', message: 'Some company fundamentals, analyst data and earnings dates could not be loaded. Missing fields are unknown; refresh to try again.' },
   };
 }
 

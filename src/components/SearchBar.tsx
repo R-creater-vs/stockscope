@@ -3,149 +3,93 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { SymbolMatch } from '@/lib/yahoo';
 
-interface Props {
-  onSelect: (query: string) => void;
-  loading: boolean;
-}
+const EXAMPLES = ['IRFC', 'RELIANCE', 'TCS'];
 
-const POPULAR = ['RELIANCE', 'TCS', 'HDFCBANK', 'INFY', 'TATAMOTORS', 'ITC'];
-
-export default function SearchBar({ onSelect, loading }: Props) {
+export default function SearchBar({ onSelect }: { onSelect: (query: string) => void }) {
   const [value, setValue] = useState('');
   const [suggestions, setSuggestions] = useState<SymbolMatch[]>([]);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
-  const listId = useId();
+  const [status, setStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const id = useId();
   const boxRef = useRef<HTMLDivElement>(null);
 
-  // Debounced autocomplete — Yahoo's search endpoint is rate limited, so we
-  // wait for a pause in typing rather than firing on every keystroke. All state
-  // updates happen inside the timer or the fetch callback, never synchronously
-  // in the effect body, and `cancelled` drops responses that arrive out of order.
   useEffect(() => {
+    const query = value.trim();
+    if (!open || query.length < 2) return;
+    const controller = new AbortController();
     let cancelled = false;
-    const q = value.trim();
-
+    let deadline: ReturnType<typeof setTimeout> | undefined;
     const timer = setTimeout(async () => {
-      if (q.length < 2) {
-        if (!cancelled) setSuggestions([]);
-        return;
-      }
+      setStatus('loading');
+      deadline = setTimeout(() => controller.abort(), 7_000);
       try {
-        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
-        const data = (await res.json()) as { results: SymbolMatch[] };
+        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`, { signal: controller.signal });
+        if (!response.ok) throw new Error('Search unavailable');
+        const result = await response.json() as { results?: SymbolMatch[] };
         if (cancelled) return;
-        setSuggestions(data.results ?? []);
+        setSuggestions(result.results ?? []);
         setActive(-1);
-        setOpen((data.results ?? []).length > 0);
+        setStatus('ready');
       } catch {
-        if (!cancelled) setSuggestions([]);
-      }
-    }, 300);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [value]);
+        if (!cancelled) { setSuggestions([]); setStatus('error'); }
+      } finally { clearTimeout(deadline); }
+    }, 250);
+    return () => { cancelled = true; clearTimeout(timer); clearTimeout(deadline); controller.abort(); };
+  }, [value, open]);
 
   useEffect(() => {
-    const onClick = (e: MouseEvent) => {
-      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+    const outside = (event: MouseEvent) => {
+      if (!boxRef.current?.contains(event.target as Node)) setOpen(false);
     };
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
+    document.addEventListener('mousedown', outside);
+    return () => document.removeEventListener('mousedown', outside);
   }, []);
 
-  const submit = (q: string) => {
-    if (!q.trim() || loading) return;
+  const submit = (query: string) => {
+    if (!query.trim()) return;
     setOpen(false);
-    setValue(q);
-    onSelect(q);
+    setActive(-1);
+    setValue(query.trim());
+    onSelect(query.trim());
   };
 
-  return (
-    <div className="w-full">
-      <div ref={boxRef} className="relative">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            submit(value);
+  return <div ref={boxRef} className="stock-search" onBlur={event => {
+    if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);
+  }}>
+    <label htmlFor={id} className="search-label">Search a stock</label>
+    <p id={`${id}-hint`} className="search-hint">Type a company name or symbol, then tap Search.</p>
+    <div className="relative">
+      <form onSubmit={event => { event.preventDefault(); submit(value); }} className="flex gap-2">
+        <input id={id} role="combobox" aria-label="Search NSE or BSE company or symbol"
+          aria-describedby={`${id}-hint`} aria-autocomplete="list"
+          aria-expanded={open && suggestions.length > 0} aria-controls={`${id}-list`}
+          aria-activedescendant={open && active >= 0 ? `${id}-option-${active}` : undefined}
+          value={value} onChange={event => {
+            setValue(event.target.value); setSuggestions([]); setActive(-1); setStatus('idle'); setOpen(true);
+          }} onFocus={() => setOpen(true)}
+          onKeyDown={event => {
+            if (event.key === 'Escape') { setOpen(false); setActive(-1); }
+            if (event.key === 'ArrowDown' && suggestions.length) { event.preventDefault(); setOpen(true); setActive(i => (i + 1) % suggestions.length); }
+            if (event.key === 'ArrowUp' && suggestions.length) { event.preventDefault(); setOpen(true); setActive(i => (i - 1 + suggestions.length) % suggestions.length); }
+            if (event.key === 'Enter' && open && active >= 0 && suggestions[active]) { event.preventDefault(); submit(suggestions[active].symbol); }
           }}
-          className="flex gap-2"
-        >
-          <div className="relative flex-1">
-            <svg
-              className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-[var(--muted-2)]"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              aria-hidden
-            >
-              <circle cx="9" cy="9" r="6" strokeWidth="1.6" />
-              <path d="M14 14l4 4" strokeWidth="1.6" strokeLinecap="round" />
-            </svg>
-            <input
-              aria-label="Search NSE or BSE company or symbol"
-              role="combobox"
-              aria-autocomplete="list"
-              aria-expanded={open && suggestions.length > 0}
-              aria-controls={listId}
-              aria-activedescendant={open && active >= 0 ? `${listId}-${active}` : undefined}
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onFocus={() => suggestions.length && setOpen(true)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape') setOpen(false);
-                if (e.key === 'ArrowDown' && suggestions.length) { e.preventDefault(); setOpen(true); setActive(i => (i + 1) % suggestions.length); }
-                if (e.key === 'ArrowUp' && suggestions.length) { e.preventDefault(); setOpen(true); setActive(i => (i - 1 + suggestions.length) % suggestions.length); }
-                if (e.key === 'Enter' && open && active >= 0 && suggestions[active]) { e.preventDefault(); submit(suggestions[active].symbol); }
-              }}
-              placeholder="Search a company or symbol"
-              className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] py-3.5 pl-11 pr-4 text-[15px] outline-none transition placeholder:text-[var(--muted-2)] focus:border-[var(--accent)] focus:shadow-[0_0_0_4px_var(--ring)]"
-              autoComplete="off"
-              spellCheck={false}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading || !value.trim()}
-            className="btn-primary shrink-0 px-4 py-3 text-sm"
-          >
-            {loading ? 'Loading…' : 'Research'}
-          </button>
-        </form>
-
-        {open && suggestions.length > 0 && (
-          <ul id={listId} role="listbox" aria-label="Matching companies" className="glass-panel absolute z-30 mt-2 w-full overflow-hidden animate-fade-in p-1">
-            {suggestions.map((s, i) => (
-              <li key={s.symbol} id={`${listId}-${i}`} role="option" aria-selected={active === i}
-                  onClick={() => submit(s.symbol)}
-                  className={`flex min-h-12 w-full cursor-pointer items-center justify-between rounded-lg px-3.5 py-2.5 text-left text-sm transition hover:bg-[var(--surface-2)] ${active === i ? 'bg-[var(--surface-2)]' : ''}`}
-                >
-                  <span className="truncate">{s.name}</span>
-                  <span className="ml-3 flex shrink-0 items-center gap-2 tnum text-xs text-[var(--muted)]">
-                    {s.symbol}
-                    <span className="rounded bg-[var(--surface-2)] px-1.5 py-0.5">{s.exchange}</span>
-                  </span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-
-      <div className="search-popular flex flex-wrap items-center gap-2">
-        <span className="text-xs text-[var(--muted-2)]">Try</span>
-        {POPULAR.map((p) => (
-          <button
-            key={p}
-            onClick={() => submit(p)}
-            className="rounded-lg border border-[var(--border)] bg-[var(--surface)]/60 px-2.5 py-1 text-xs text-[var(--muted)] transition hover:border-[var(--accent)] hover:text-[var(--foreground)]"
-          >
-            {p}
-          </button>
-        ))}
-      </div>
+          placeholder="e.g. IRFC or Tata Motors" className="stock-search-input"
+          autoComplete="off" autoCapitalize="characters" spellCheck={false} enterKeyHint="search" />
+        <button type="submit" disabled={!value.trim()} className="btn-primary shrink-0 px-4 py-3 text-sm">Search</button>
+      </form>
+      {open && suggestions.length > 0 && <ul id={`${id}-list`} role="listbox" aria-label="Matching companies" className="search-results">
+        {suggestions.map((suggestion, index) => <li key={suggestion.symbol} id={`${id}-option-${index}`}
+          role="option" aria-selected={active === index}
+          onMouseDown={event => event.preventDefault()} onClick={() => submit(suggestion.symbol)}
+          className={active === index ? 'search-result active' : 'search-result'}>
+          <span>{suggestion.name}</span><span className="tnum">{suggestion.symbol} · {suggestion.exchange}</span>
+        </li>)}
+      </ul>}
     </div>
-  );
+    <div className="search-feedback" role="status" aria-live="polite">
+      {open && value.trim().length >= 2 && (status === 'loading' ? 'Finding matching companies…' : status === 'error' ? 'Suggestions are unavailable. You can still search by stock symbol.' : status === 'ready' ? suggestions.length ? `${suggestions.length} matching companies. Choose one or tap Search.` : 'No matching company found. Check the name or try its NSE / BSE symbol.' : '')}
+    </div>
+    <div className="search-popular"><span>Try</span>{EXAMPLES.map(symbol => <button key={symbol} onClick={() => submit(symbol)}>{symbol}</button>)}</div>
+  </div>;
 }

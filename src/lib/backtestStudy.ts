@@ -15,7 +15,7 @@
 
 import {
   aggregate,
-  backtestSymbol,
+  backtestSymbolAsync,
   ENGINE_CONFIGS,
   STRATEGIES,
   type AggregateStudy,
@@ -138,7 +138,7 @@ async function execute(engine: Engine, window: StudyWindow | null): Promise<Stud
   for (const s of seriesList) {
     if (!s) continue;
     try {
-      const bt = backtestSymbol(
+      const bt = await backtestSymbolAsync(
         s.symbol,
         s.bars,
         config,

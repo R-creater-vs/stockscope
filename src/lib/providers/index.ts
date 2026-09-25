@@ -4,6 +4,7 @@
  */
 
 export type { DataProvider } from './provider';
+export type { DataRequestOptions } from '../providerRequest';
 export {
   activeProvider,
   fetchBars,

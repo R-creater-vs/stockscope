@@ -108,6 +108,7 @@ try {
   const check = async (name, expression) => { const passed = Boolean(await evaluate(expression)); interactions.push({ name, passed }); if (!passed) throw new Error(`Interaction failed: ${name}`); };
   await cdp('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
   await nav('/?view=discover', `document.querySelector('.view-content')?.offsetParent !== null && !!document.querySelector('.view-content .stock-row')`);
+  await evaluate(`document.querySelector('.discovery-filters summary').click()`);
   await evaluate(`document.querySelector('.filter-search input').focus()`);
   await cdp('Input.insertText', { text: 'RELIANCE' });
   await until(`document.querySelectorAll('.view-content .stock-row').length === 1`);

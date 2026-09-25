@@ -226,6 +226,46 @@ export function backtestSymbol(
   strategy: Strategy = swingStrategy,
   window?: BacktestWindow,
 ): SymbolBacktest {
+  const replay = replayBacktest(symbol, bars, config, regime, strategy, window);
+  let step = replay.next();
+  while (!step.done) step = replay.next();
+  return step.value;
+}
+
+/**
+ * Server jobs share the exact synchronous replay, but give timers, incoming
+ * requests and provider responses a turn between short slices of computation.
+ * A background Promise alone does not prevent a long replay from blocking Node.
+ * No decision, indicator, trade or aggregation is skipped or approximated.
+ */
+export async function backtestSymbolAsync(
+  symbol: string,
+  bars: Bar[],
+  config: BacktestConfig = DEFAULT_CONFIG,
+  regime?: Record<string, boolean>,
+  strategy: Strategy = swingStrategy,
+  window?: BacktestWindow,
+): Promise<SymbolBacktest> {
+  const replay = replayBacktest(symbol, bars, config, regime, strategy, window);
+  let sliceEndsAt = performance.now() + 12;
+  while (true) {
+    const step = replay.next();
+    if (step.done) return step.value;
+    if (performance.now() >= sliceEndsAt) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      sliceEndsAt = performance.now() + 12;
+    }
+  }
+}
+
+function* replayBacktest(
+  symbol: string,
+  bars: Bar[],
+  config: BacktestConfig,
+  regime: Record<string, boolean> | undefined,
+  strategy: Strategy,
+  window: BacktestWindow | undefined,
+): Generator<void, SymbolBacktest, void> {
   const n = bars.length;
   const minRank = RANK[config.minVerdict];
   const horizon = config.signalHorizon;
@@ -247,6 +287,7 @@ export function backtestSymbol(
   let nextEntryFilteredIdx = config.warmup;
 
   for (let i = config.warmup; i < n - 1; i++) {
+    yield;
     const onDate = bars[i].date;
     if (!inWindow(onDate)) continue;
 
