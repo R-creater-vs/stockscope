@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { SymbolMatch } from '@/lib/yahoo';
 
 interface Props {
@@ -14,6 +14,8 @@ export default function SearchBar({ onSelect, loading }: Props) {
   const [value, setValue] = useState('');
   const [suggestions, setSuggestions] = useState<SymbolMatch[]>([]);
   const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const listId = useId();
   const boxRef = useRef<HTMLDivElement>(null);
 
   // Debounced autocomplete — Yahoo's search endpoint is rate limited, so we
@@ -34,6 +36,7 @@ export default function SearchBar({ onSelect, loading }: Props) {
         const data = (await res.json()) as { results: SymbolMatch[] };
         if (cancelled) return;
         setSuggestions(data.results ?? []);
+        setActive(-1);
         setOpen((data.results ?? []).length > 0);
       } catch {
         if (!cancelled) setSuggestions([]);
@@ -55,7 +58,7 @@ export default function SearchBar({ onSelect, loading }: Props) {
   }, []);
 
   const submit = (q: string) => {
-    if (!q.trim()) return;
+    if (!q.trim() || loading) return;
     setOpen(false);
     setValue(q);
     onSelect(q);
@@ -83,10 +86,22 @@ export default function SearchBar({ onSelect, loading }: Props) {
               <path d="M14 14l4 4" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
             <input
+              aria-label="Search NSE or BSE company or symbol"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={open && suggestions.length > 0}
+              aria-controls={listId}
+              aria-activedescendant={open && active >= 0 ? `${listId}-${active}` : undefined}
               value={value}
               onChange={(e) => setValue(e.target.value)}
               onFocus={() => suggestions.length && setOpen(true)}
-              placeholder="Enter a stock name or symbol — e.g. Reliance, TCS, HDFC Bank"
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') setOpen(false);
+                if (e.key === 'ArrowDown' && suggestions.length) { e.preventDefault(); setOpen(true); setActive(i => (i + 1) % suggestions.length); }
+                if (e.key === 'ArrowUp' && suggestions.length) { e.preventDefault(); setOpen(true); setActive(i => (i - 1 + suggestions.length) % suggestions.length); }
+                if (e.key === 'Enter' && open && active >= 0 && suggestions[active]) { e.preventDefault(); submit(suggestions[active].symbol); }
+              }}
+              placeholder="Search a company or symbol"
               className="w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] py-3.5 pl-11 pr-4 text-[15px] outline-none transition placeholder:text-[var(--muted-2)] focus:border-[var(--accent)] focus:shadow-[0_0_0_4px_var(--ring)]"
               autoComplete="off"
               spellCheck={false}
@@ -95,33 +110,31 @@ export default function SearchBar({ onSelect, loading }: Props) {
           <button
             type="submit"
             disabled={loading || !value.trim()}
-            className="btn-primary shrink-0 px-7 py-3.5 text-[15px]"
+            className="btn-primary shrink-0 px-4 py-3 text-sm"
           >
-            {loading ? 'Analysing…' : 'Analyse'}
+            {loading ? 'Loading…' : 'Research'}
           </button>
         </form>
 
         {open && suggestions.length > 0 && (
-          <ul className="glass-panel absolute z-30 mt-2 w-full overflow-hidden animate-fade-in p-1">
-            {suggestions.map((s) => (
-              <li key={s.symbol}>
-                <button
+          <ul id={listId} role="listbox" aria-label="Matching companies" className="glass-panel absolute z-30 mt-2 w-full overflow-hidden animate-fade-in p-1">
+            {suggestions.map((s, i) => (
+              <li key={s.symbol} id={`${listId}-${i}`} role="option" aria-selected={active === i}
                   onClick={() => submit(s.symbol)}
-                  className="flex w-full items-center justify-between rounded-lg px-3.5 py-2.5 text-left text-sm transition hover:bg-[var(--surface-2)]"
+                  className={`flex min-h-12 w-full cursor-pointer items-center justify-between rounded-lg px-3.5 py-2.5 text-left text-sm transition hover:bg-[var(--surface-2)] ${active === i ? 'bg-[var(--surface-2)]' : ''}`}
                 >
                   <span className="truncate">{s.name}</span>
                   <span className="ml-3 flex shrink-0 items-center gap-2 tnum text-xs text-[var(--muted)]">
                     {s.symbol}
                     <span className="rounded bg-[var(--surface-2)] px-1.5 py-0.5">{s.exchange}</span>
                   </span>
-                </button>
               </li>
             ))}
           </ul>
         )}
       </div>
 
-      <div className="mt-3.5 flex flex-wrap items-center gap-2">
+      <div className="search-popular flex flex-wrap items-center gap-2">
         <span className="text-xs text-[var(--muted-2)]">Try</span>
         {POPULAR.map((p) => (
           <button

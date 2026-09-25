@@ -383,6 +383,7 @@ async function fetchMarketContext(): Promise<MarketContext | null> {
 
     return {
       name: MARKET_INDEX.name,
+      sourceBarDate: bars.at(-1)!.date,
       price,
       changePercent: ((price - prev) / prev) * 100,
       regime,
@@ -417,4 +418,3 @@ async function mapWithConcurrency<T, R>(
   await Promise.all(workers);
   return out;
 }
-

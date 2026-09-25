@@ -1,128 +1,113 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useState } from 'react';
 
-/**
- * Client side of Web Push: register the service worker, ask permission, and hand
- * the subscription to the server. All the browser-capability juggling lives here
- * so components can just call `enable()` / `disable()`.
- */
-
 interface PushState {
+  ready: boolean;
   supported: boolean;
   permission: NotificationPermission | 'unsupported';
   subscribed: boolean;
   busy: boolean;
+  error: string | null;
 }
 
 function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   const padding = '='.repeat((4 - (base64.length % 4)) % 4);
-  const b64 = (base64 + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const raw = atob(b64);
-  // Build over an explicit ArrayBuffer so the type is Uint8Array<ArrayBuffer>,
-  // which is what pushManager.subscribe's applicationServerKey requires.
+  const raw = atob((base64 + padding).replace(/-/g, '+').replace(/_/g, '/'));
   const out = new Uint8Array(new ArrayBuffer(raw.length));
   for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
   return out;
 }
 
-const isSupported = () =>
-  typeof window !== 'undefined' &&
-  'serviceWorker' in navigator &&
-  'PushManager' in window &&
-  'Notification' in window;
+const isSupported = () => typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+
+async function pushRequest(body?: object) {
+  const res = await fetch('/api/push', body ? {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  } : { cache: 'no-store' });
+  const data = (await res.json()) as { publicKey?: string; subscribed?: boolean; delivered?: number; error?: string };
+  if (!res.ok || data.error) throw new Error(data.error || 'Notification service is unavailable. Please retry.');
+  return data;
+}
 
 export function usePush() {
-  const [state, setState] = useState<PushState>({
-    supported: false,
-    permission: 'unsupported',
-    subscribed: false,
-    busy: false,
-  });
+  const [state, setState] = useState<PushState>({ ready: false, supported: false, permission: 'unsupported', subscribed: false, busy: false, error: null });
 
   const refresh = useCallback(async () => {
     if (!isSupported()) {
-      setState((s) => ({ ...s, supported: false, permission: 'unsupported' }));
+      setState((old) => ({ ...old, ready: true, supported: false, permission: 'unsupported' }));
       return;
     }
     try {
-      const res = await fetch('/api/push');
-      const data = (await res.json()) as { subscribed: boolean };
-      setState((s) => ({
-        ...s,
-        supported: true,
-        permission: Notification.permission,
-        subscribed: data.subscribed,
-      }));
+      const data = await pushRequest();
+      const registration = await navigator.serviceWorker.getRegistration();
+      const subscription = await registration?.pushManager.getSubscription();
+      setState((old) => ({ ...old, ready: true, supported: true, permission: Notification.permission, subscribed: Boolean(subscription && data.subscribed), error: null }));
     } catch {
-      setState((s) => ({ ...s, supported: true, permission: Notification.permission }));
+      setState((old) => ({ ...old, ready: true, supported: true, permission: Notification.permission, error: 'Notification status could not be verified. Check your connection and retry.' }));
     }
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- async capability check on mount
-    refresh();
+    const timer = window.setTimeout(() => { void refresh(); }, 0);
+    return () => window.clearTimeout(timer);
   }, [refresh]);
 
-  const enable = useCallback(async () => {
-    if (!isSupported()) return;
-    setState((s) => ({ ...s, busy: true }));
+  const enable = useCallback(async (): Promise<string | null> => {
+    if (!isSupported()) return 'This browser does not support push notifications.';
+    setState((old) => ({ ...old, busy: true, error: null }));
     try {
-      const reg = await navigator.serviceWorker.register('/sw.js');
-      await navigator.serviceWorker.ready;
-
       const permission = await Notification.requestPermission();
       if (permission !== 'granted') {
-        setState((s) => ({ ...s, permission, busy: false }));
-        return;
+        const error = permission === 'denied' ? 'Notifications are blocked in browser settings.' : 'Permission was not granted. Your rules remain saved.';
+        setState((old) => ({ ...old, permission, busy: false, error }));
+        return error;
       }
-
-      const keyRes = await fetch('/api/push');
-      const { publicKey } = (await keyRes.json()) as { publicKey: string };
-
-      const sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(publicKey),
-      });
-
-      await fetch('/api/push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'subscribe', subscription: sub.toJSON() }),
-      });
-
-      setState({ supported: true, permission: 'granted', subscribed: true, busy: false });
-    } catch {
-      setState((s) => ({ ...s, busy: false }));
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+      const { publicKey } = await pushRequest();
+      if (!publicKey) throw new Error('Push notifications are not configured on this server.');
+      const subscription = await registration.pushManager.getSubscription() ?? await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
+      await pushRequest({ action: 'subscribe', subscription: subscription.toJSON() });
+      setState({ ready: true, supported: true, permission: 'granted', subscribed: true, busy: false, error: null });
+      return null;
+    } catch (cause) {
+      const error = cause instanceof Error ? cause.message : 'Notifications could not be enabled. Please retry.';
+      setState((old) => ({ ...old, busy: false, error }));
+      return error;
     }
   }, []);
 
-  const disable = useCallback(async () => {
-    setState((s) => ({ ...s, busy: true }));
+  const disable = useCallback(async (): Promise<string | null> => {
+    setState((old) => ({ ...old, busy: true, error: null }));
     try {
-      const reg = await navigator.serviceWorker.getRegistration();
-      const sub = await reg?.pushManager.getSubscription();
-      if (sub) {
-        await fetch('/api/push', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'unsubscribe', endpoint: sub.endpoint }),
-        });
-        await sub.unsubscribe();
+      const registration = await navigator.serviceWorker.getRegistration();
+      const subscription = await registration?.pushManager.getSubscription();
+      if (subscription) {
+        await pushRequest({ action: 'unsubscribe', endpoint: subscription.endpoint });
+        await subscription.unsubscribe();
       }
-      setState((s) => ({ ...s, subscribed: false, busy: false }));
-    } catch {
-      setState((s) => ({ ...s, busy: false }));
+      setState((old) => ({ ...old, subscribed: false, busy: false }));
+      return null;
+    } catch (cause) {
+      const error = cause instanceof Error ? cause.message : 'The notification change could not be confirmed.';
+      setState((old) => ({ ...old, busy: false, error }));
+      return error;
     }
   }, []);
 
-  const test = useCallback(async () => {
-    await fetch('/api/push', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'test' }),
-    });
+  const test = useCallback(async (): Promise<{ delivered: number; error: string | null }> => {
+    setState((old) => ({ ...old, busy: true, error: null }));
+    try {
+      const data = await pushRequest({ action: 'test' });
+      setState((old) => ({ ...old, busy: false }));
+      return { delivered: data.delivered ?? 0, error: null };
+    } catch (cause) {
+      const error = cause instanceof Error ? cause.message : 'A test notification could not be sent.';
+      setState((old) => ({ ...old, busy: false, error }));
+      return { delivered: 0, error };
+    }
   }, []);
 
-  return { ...state, enable, disable, test };
+  return { ...state, enable, disable, test, refresh };
 }

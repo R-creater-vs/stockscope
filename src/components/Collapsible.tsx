@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 
 /**
  * Secondary detail lives behind this. The report has a lot of true, useful
@@ -19,16 +19,20 @@ export default function Collapsible({
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const contentId = useId();
+  const triggerId = useId();
 
   return (
     <section className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
       <button
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between gap-4 px-5 py-3.5 text-left transition hover:bg-[var(--surface-2)]"
+        aria-controls={contentId}
+        id={triggerId}
+        className="flex min-h-14 w-full items-center justify-between gap-4 px-5 py-4 text-left transition hover:bg-[var(--surface-2)]"
       >
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wider">{title}</h2>
+          <h2 className="text-sm font-semibold">{title}</h2>
           {subtitle && <p className="mt-0.5 text-xs text-[var(--muted)]">{subtitle}</p>}
         </div>
         <span
@@ -40,7 +44,7 @@ export default function Collapsible({
         </span>
       </button>
 
-      {open && <div className="border-t border-[var(--border)]">{children}</div>}
+      <div id={contentId} role="region" aria-labelledby={triggerId} hidden={!open} className={open ? 'border-t border-[var(--border)]' : undefined}>{open && children}</div>
     </section>
   );
 }

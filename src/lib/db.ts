@@ -15,7 +15,7 @@ import { dirname, join } from 'node:path';
 
 // Kept outside the build output so a redeploy never wipes user data. Override
 // with STOCKSCOPE_DB_PATH in production (e.g. a mounted volume).
-const DB_PATH = process.env.STOCKSCOPE_DB_PATH ?? join(process.cwd(), '.data', 'stockscope.db');
+const DB_PATH = process.env.STOCKSCOPE_DB_PATH ?? join(/* turbopackIgnore: true */ process.cwd(), '.data', 'stockscope.db');
 
 let db: DatabaseSync | null = null;
 

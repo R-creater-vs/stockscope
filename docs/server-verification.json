@@ -1,0 +1,67 @@
+{
+  "capturedAt": "2026-09-25T14:21:00.132Z",
+  "mode": "standalone",
+  "base": "http://127.0.0.1:3000",
+  "checks": [
+    {
+      "route": "/",
+      "status": 200,
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "route": "/manifest.webmanifest",
+      "status": 200,
+      "contentType": "application/manifest+json"
+    },
+    {
+      "route": "/brand/favicon.svg",
+      "status": 200,
+      "contentType": "image/svg+xml"
+    },
+    {
+      "route": "/offline.html",
+      "status": 200,
+      "contentType": "text/html; charset=UTF-8"
+    },
+    {
+      "route": "/api/watchlist",
+      "status": 200,
+      "contentType": "application/json"
+    },
+    {
+      "route": "/api/alerts",
+      "status": 200,
+      "contentType": "application/json"
+    },
+    {
+      "route": "/api/auth/session",
+      "status": 200,
+      "contentType": "application/json"
+    },
+    {
+      "route": "/api/push",
+      "status": 200,
+      "contentType": "application/json"
+    },
+    {
+      "route": "/api/market",
+      "status": 200,
+      "contentType": "application/json"
+    },
+    {
+      "route": "/api/quote?symbol=%5ENSEI",
+      "status": 200,
+      "contentType": "application/json"
+    },
+    {
+      "route": "/api/analyze?q=RELIANCE.NS",
+      "status": 200,
+      "contentType": "application/json"
+    },
+    {
+      "route": "first production JavaScript asset",
+      "status": 200,
+      "contentType": "application/javascript; charset=UTF-8"
+    }
+  ]
+}

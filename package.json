@@ -9,6 +9,9 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "verify": "node scripts/verify-indicators.mjs",
+    "verify:math": "node scripts/verify-redesign-math.mjs",
+    "verify:ui": "node scripts/verify-ui.mjs",
+    "verify:bundle": "node scripts/verify-build-output.mjs",
     "check-universe": "node scripts/check-universe.mjs",
     "backtest": "node scripts/backtest.mjs"
   },

@@ -1,17 +1,6 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useSyncExternalStore } from 'react';
-
-/**
- * Server-backed watchlist. The list lives in the database keyed by the browser's
- * anonymous id (set by middleware), so it survives clearing localStorage, follows
- * the session across reloads, and — crucially — is visible to the background
- * scheduler that fires alerts. The client keeps a synced in-memory mirror so the
- * UI stays instant and optimistic.
- *
- * The public shape ({ items, ready, has, toggle, remove }) is unchanged from the
- * old localStorage hook, so call sites did not need touching.
- */
 
 export interface WatchItem {
   symbol: string;
@@ -19,100 +8,82 @@ export interface WatchItem {
   addedAt: number;
 }
 
-const EMPTY: WatchItem[] = [];
+interface Snapshot {
+  items: WatchItem[];
+  ready: boolean;
+  busy: boolean;
+  error: string | null;
+}
 
-let items: WatchItem[] = EMPTY;
-let ready = false;
+const INITIAL: Snapshot = { items: [], ready: false, busy: false, error: null };
+let state = INITIAL;
 let loadStarted = false;
 const listeners = new Set<() => void>();
 
-function emit() {
-  for (const l of listeners) l();
+function update(next: Partial<Snapshot>) {
+  state = { ...state, ...next };
+  listeners.forEach((listener) => listener());
 }
 
-function setItems(next: WatchItem[]) {
-  items = next;
-  emit();
+interface ServerRow { symbol: string; name: string; added_at: number }
+
+async function readList(res: Response) {
+  const data = (await res.json()) as { items?: ServerRow[]; error?: string };
+  if (!res.ok || data.error || !Array.isArray(data.items)) {
+    throw new Error(data.error || 'Your watchlist could not be saved. Please try again.');
+  }
+  return data.items.map((row) => ({ symbol: row.symbol, name: row.name, addedAt: row.added_at }));
 }
 
-interface ServerRow {
-  symbol: string;
-  name: string;
-  added_at: number;
-}
-
-function fromServer(rows: ServerRow[]): WatchItem[] {
-  return rows.map((r) => ({ symbol: r.symbol, name: r.name, addedAt: r.added_at }));
-}
-
-async function load() {
-  if (loadStarted) return;
+async function reload() {
+  if (state.busy) return;
   loadStarted = true;
+  update({ busy: true, error: null });
   try {
-    const res = await fetch('/api/watchlist');
-    const data = (await res.json()) as { items: ServerRow[] };
-    items = fromServer(data.items ?? []);
+    const items = await readList(await fetch('/api/watchlist', { cache: 'no-store' }));
+    update({ items, ready: true, busy: false });
   } catch {
-    items = EMPTY;
-  } finally {
-    ready = true;
-    emit();
+    update({ ready: true, busy: false, error: 'Your saved watchlist could not be loaded. Check your connection and retry.' });
   }
 }
 
-async function apiToggle(symbol: string, name: string, add: boolean) {
+async function change(symbol: string, name: string, add: boolean): Promise<string | null> {
+  if (!state.ready || state.busy) return 'Please wait for your watchlist to finish syncing.';
+  const previous = state.items;
+  update({
+    items: add ? [{ symbol, name, addedAt: Date.now() }, ...previous] : previous.filter((item) => item.symbol !== symbol),
+    busy: true,
+    error: null,
+  });
   try {
     const res = add
-      ? await fetch('/api/watchlist', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ symbol, name }),
-        })
+      ? await fetch('/api/watchlist', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ symbol, name }) })
       : await fetch(`/api/watchlist?symbol=${encodeURIComponent(symbol)}`, { method: 'DELETE' });
-    const data = (await res.json()) as { items: ServerRow[] };
-    setItems(fromServer(data.items ?? []));
+    const items = await readList(res);
+    update({ items, busy: false });
+    return null;
   } catch {
-    // Network hiccup: re-sync from the server so the mirror never drifts.
-    loadStarted = false;
-    load();
+    const error = 'Watchlist change could not be confirmed. The previous list is shown; retry when connected.';
+    update({ items: previous, busy: false, error });
+    return error;
   }
 }
 
-function subscribe(cb: () => void): () => void {
-  listeners.add(cb);
-  return () => listeners.delete(cb);
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
 }
 
-const getSnapshot = () => items;
-const getServerSnapshot = () => EMPTY;
-
 export function useWatchlist() {
-  const list = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const snapshot = useSyncExternalStore(subscribe, () => state, () => INITIAL);
+  useEffect(() => { if (!loadStarted) void reload(); }, []);
 
-  useEffect(() => {
-    load();
+  const has = useCallback((symbol: string) => snapshot.items.some((item) => item.symbol === symbol.toUpperCase()), [snapshot.items]);
+  const toggle = useCallback((symbol: string, name: string) => {
+    const normalized = symbol.toUpperCase();
+    return change(normalized, name, !state.items.some((item) => item.symbol === normalized));
   }, []);
+  const remove = useCallback((symbol: string) => change(symbol.toUpperCase(), '', false), []);
 
-  const has = useCallback((symbol: string) => list.some((i) => i.symbol === symbol), [list]);
-
-  const toggle = useCallback(
-    (symbol: string, name: string) => {
-      const exists = items.some((i) => i.symbol === symbol);
-      // Optimistic update, then reconcile with the server's authoritative list.
-      setItems(
-        exists
-          ? items.filter((i) => i.symbol !== symbol)
-          : [{ symbol, name, addedAt: Date.now() }, ...items],
-      );
-      apiToggle(symbol, name, !exists);
-    },
-    [],
-  );
-
-  const remove = useCallback((symbol: string) => {
-    setItems(items.filter((i) => i.symbol !== symbol));
-    apiToggle(symbol, '', false);
-  }, []);
-
-  return { items: list, ready, has, toggle, remove };
+  return { ...snapshot, has, toggle, remove, reload };
 }

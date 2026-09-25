@@ -26,6 +26,7 @@ export default function BacktestPanel({ query }: { query: string }) {
   const [error, setError] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,7 +64,7 @@ export default function BacktestPanel({ query }: { query: string }) {
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, attempt]);
 
   // Ticks the elapsed-time readout while a job is in flight.
   useEffect(() => {
@@ -72,12 +73,12 @@ export default function BacktestPanel({ query }: { query: string }) {
     return () => clearInterval(id);
   }, [data, error]);
 
-  if (error) return <p className="px-5 py-4 text-sm text-[var(--muted)]">{error}</p>;
+  if (error) return <div className="px-5 py-4"><p role="alert" className="text-sm text-[var(--muted)]">{error}</p><button onClick={() => setAttempt((value) => value + 1)} className="mt-3 min-h-11 rounded-lg border border-[var(--border)] px-4 text-sm">Retry backtest</button></div>;
   if (!data) {
     const elapsedS = startedAt ? Math.max(0, Math.round((now - startedAt) / 1000)) : 0;
     return (
-      <div className="space-y-2 p-4">
-        <div className="h-24 animate-pulse rounded-lg bg-[var(--surface-2)]" />
+      <div className="space-y-2 p-4" role="status">
+        <div aria-hidden="true" className="h-24 animate-pulse rounded-lg bg-[var(--surface-2)]" />
         <p className="text-center text-xs text-[var(--muted)]">
           Replaying the engine since this stock&apos;s listing, one trading day at a time — older,
           long-listed names can take a minute or two the first time
@@ -99,7 +100,7 @@ export default function BacktestPanel({ query }: { query: string }) {
       {/* Honest one-line verdict first. */}
       <div
         className="mb-4 rounded-lg px-4 py-3 text-sm"
-        style={{ background: `${edgeColor}14`, color: 'var(--foreground)' }}
+        style={{ background: 'var(--surface-2)', color: 'var(--foreground)' }}
       >
         Over {data.from} → {data.to}, this strategy took{' '}
         <strong>{s.trades}</strong> trades on {data.symbol.replace('.NS', '')} with a{' '}
@@ -108,7 +109,8 @@ export default function BacktestPanel({ query }: { query: string }) {
           {s.expectancyR >= 0 ? '+' : ''}
           {s.expectancyR.toFixed(2)}R
         </strong>{' '}
-        per trade — a <strong style={{ color: edgeColor }}>{edge} edge</strong>.
+        per trade — a <strong style={{ color: edgeColor }}>{edge} historical expectancy</strong>.
+        <p className="mt-2 text-[var(--muted)]">This stock&apos;s history does not validate future returns. The weighted swing model has no demonstrated stable edge across its recorded universe tests.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -178,10 +180,10 @@ export default function BacktestPanel({ query }: { query: string }) {
 
       <div className="mt-5">
         <p className="mb-2 text-xs font-medium uppercase tracking-wider text-[var(--muted)]">
-          Does the score predict returns? (this stock)
+          Score and subsequent returns · this stock
         </p>
         <SignalBuckets buckets={data.signal.buckets} horizon={data.signal.horizon} />
-        <p className="mt-2 text-[11px] text-[var(--muted)]">
+        <p className="mt-2 text-xs text-[var(--muted)]">
           Score/return correlation for {data.symbol.replace('.NS', '')}:{' '}
           <span className="tnum" style={{ color: data.signal.correlation >= 0 ? 'var(--bull)' : 'var(--bear)' }}>
             {data.signal.correlation >= 0 ? '+' : ''}
@@ -189,6 +191,7 @@ export default function BacktestPanel({ query }: { query: string }) {
           </span>{' '}
           · net of {data.config.costPct}% round-trip cost · entries at next day&apos;s open.
         </p>
+        <p className="mt-2 text-xs leading-relaxed text-[var(--muted)]">{data.signal.samples.toLocaleString('en-IN')} daily signal observations; forward-return windows overlap. {data.config.holdMaxDays}-day maximum hold; engine stop and target. Signal buckets show price returns, while the trading simulation deducts assumed costs. Real liquidity, fills and costs can differ. This is a single-stock simulation, not a portfolio return.</p>
       </div>
     </div>
   );
@@ -197,7 +200,7 @@ export default function BacktestPanel({ query }: { query: string }) {
 function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div className="rounded-lg bg-[var(--surface-2)] px-3 py-2">
-      <p className="text-[10px] uppercase tracking-widest text-[var(--muted)]">{label}</p>
+      <p className="text-xs text-[var(--muted)]">{label}</p>
       <p className="tnum mt-0.5 text-base font-semibold" style={color ? { color } : undefined}>
         {value}
       </p>

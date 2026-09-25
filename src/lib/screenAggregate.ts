@@ -48,6 +48,8 @@ export interface ScreenRow {
 export type Regime = 'Bullish' | 'Neutral' | 'Bearish';
 
 export interface MarketContext {
+  /** Date of the daily bar used by the regime. Older persisted scans may omit it. */
+  sourceBarDate?: string;
   name: string;
   price: number;
   changePercent: number;
@@ -195,8 +197,8 @@ export function buildBuckets(rows: ScreenRow[], perBucket = 12): Bucket[] {
   return [
     {
       id: 'best',
-      title: 'Best setups',
-      blurb: 'Highest technical scores with the signals actually agreeing.',
+      title: 'Bullish readings',
+      blurb: 'Bullish weighted rule readings with confidence of at least 50. Confidence is signal agreement, not a profit probability.',
       rows: rows
         .filter((r) => (r.verdict === 'BUY' || r.verdict === 'STRONG_BUY') && r.confidence >= 50)
         .sort(byScore)
@@ -204,7 +206,7 @@ export function buildBuckets(rows: ScreenRow[], perBucket = 12): Bucket[] {
     },
     {
       id: 'track',
-      title: 'Best track record',
+      title: 'Historical results',
       blurb:
         'Ranked by how each stock’s swing setups actually did over the past year — net of costs, no look-ahead. Honest history on a small sample, not a forecast. Set the price filter to ₹100–250 for affordable names.',
       rows: rows
@@ -214,8 +216,8 @@ export function buildBuckets(rows: ScreenRow[], perBucket = 12): Bucket[] {
     },
     {
       id: 'momentum',
-      title: 'Running strong',
-      blurb: 'Established uptrends still moving — ADX above 25 and not yet overbought.',
+      title: 'Momentum',
+      blurb: 'Price above aligned 20/50 EMAs, ADX above 25, positive DI leading, and RSI from 55 to 72.',
       rows: rows
         .filter((r) => r.tags.includes('Momentum'))
         .sort((a, b) => (b.roc20 ?? 0) - (a.roc20 ?? 0))
@@ -223,26 +225,26 @@ export function buildBuckets(rows: ScreenRow[], perBucket = 12): Bucket[] {
     },
     {
       id: 'breakout',
-      title: 'Breaking out',
-      blurb: 'Clearing the 20-day high on above-average volume, today.',
+      title: 'Breakouts',
+      blurb: 'Above the prior 20-day high on above-average volume in the scanned daily bars.',
       rows: rows.filter((r) => r.tags.includes('Breakout')).sort(byScore).slice(0, perBucket),
     },
     {
       id: 'pullback',
-      title: 'Buy-the-dip',
-      blurb: 'Uptrend intact, price back at the 20-EMA. Lowest-risk entries here.',
+      title: 'Pullbacks',
+      blurb: 'Price above the 50-day EMA and at or below 102% of the 20-day EMA; RSI 40–58. A pullback can continue.',
       rows: rows.filter((r) => r.tags.includes('Pullback')).sort(byScore).slice(0, perBucket),
     },
     {
       id: 'squeeze',
-      title: 'Coiled up',
-      blurb: 'Volatility squeezed to a yearly low. A big move is near — direction unknown.',
+      title: 'Squeezes',
+      blurb: 'Bollinger bandwidth in the lowest fifth of available history (up to one year). Timing and direction of any move are unknown.',
       rows: rows.filter((r) => r.tags.includes('Squeeze')).sort(byScore).slice(0, perBucket),
     },
     {
       id: 'reversal',
       title: 'Oversold bounce',
-      blurb: 'Beaten down but selling is easing. Counter-trend — the riskiest bucket here.',
+      blurb: 'RSI below 38 with a rising MACD histogram. Counter-trend conditions can persist.',
       rows: rows.filter((r) => r.tags.includes('Reversal')).sort(byScore).slice(0, perBucket),
     },
   ];

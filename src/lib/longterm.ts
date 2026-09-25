@@ -81,7 +81,7 @@ export function analyzeLongTerm(bars: Bar[], f: Fundamentals): TimeframeAnalysis
         `operating margin ${f.operatingMargin !== null ? fracPct(f.operatingMargin) : '—'}, ` +
         `net margin ${f.profitMargin !== null ? fracPct(f.profitMargin) : '—'}. ` +
         (qualScore > 0.25
-          ? 'A genuinely profitable business.'
+          ? 'Profitability inputs are above the model thresholds.'
           : qualScore < -0.25
             ? 'Thin returns — capital is not working hard here.'
             : 'Middling profitability.'),
@@ -153,8 +153,8 @@ export function analyzeLongTerm(bars: Bar[], f: Fundamentals): TimeframeAnalysis
       score,
       weight: 20,
       detail: above
-        ? `Price ${inr(price)} is above its 200-day average (${inr(s200)}), which is ${rising ? 'rising' : 'flat/falling'} — the market's long-term verdict is ${rising ? 'positive' : 'cautiously positive'}. Even a great business is a poor investment while its price trend is down; here it is up.`
-        : `Price ${inr(price)} is below its 200-day average (${inr(s200)}). Whatever the fundamentals say, the market has been marking this business down — wait for the price trend to stabilise before committing.`,
+        ? `Price ${inr(price)} is above its 200-day average (${inr(s200)}), which is ${rising ? 'rising' : 'flat/falling'}. The long-term price rule is ${rising ? 'positive' : 'cautiously positive'}.`
+        : `Price ${inr(price)} is below its 200-day average (${inr(s200)}). This price-trend input does not support the bullish fundamental case.`,
     });
   }
 
@@ -224,10 +224,10 @@ export function analyzeLongTerm(bars: Bar[], f: Fundamentals): TimeframeAnalysis
 }
 
 const LONG_VERDICT: Record<string, string> = {
-  STRONG_BUY: 'Strong buy — accumulate',
-  BUY: 'Accumulate',
-  HOLD: 'Hold',
-  AVOID: 'Avoid',
+  STRONG_BUY: 'Strong bullish bias',
+  BUY: 'Bullish bias',
+  HOLD: 'Mixed evidence',
+  AVOID: 'Bearish bias',
 };
 
 function valuationDetail(f: Fundamentals): string {
@@ -251,18 +251,18 @@ function buildAction(price: number, s200: number | null, verdict: string): Actio
 
   return {
     headline: accumulate
-      ? `Accumulate in tranches from ${inr(price)} down toward ${inr(zoneLow)}.`
+      ? `Illustrative valuation review zone: ${inr(zoneLow)}–${inr(price)}.`
       : verdict === 'HOLD'
-        ? 'Hold existing positions; no compelling reason to add at these levels.'
-        : 'The fundamental and/or trend case is weak — avoid for a long-term hold.',
+        ? 'The available fundamental and trend rules show mixed evidence.'
+        : 'The available fundamental and trend rules show a bearish bias.',
     entryLow: accumulate ? zoneLow : null,
     entryHigh: accumulate ? price : null,
     stopLoss: null, // investors exit on a broken thesis, not a price stop
     target1: null,
     target2: null,
     note: accumulate
-      ? `Long-term positions are built in tranches, not a single buy — average in toward the 200-day average (${s200 !== null ? inr(s200) : '—'}) and add on weakness while the fundamentals hold. The thesis breaks if earnings growth turns negative or debt climbs, not on a bad week of price.`
-      : 'For a long-term hold, revisit only if the fundamentals improve or the price trend turns back up — there is no tight stop here, because the decision is about the business, not the tape.',
+      ? `The review zone references the 200-day average (${s200 !== null ? inr(s200) : '—'}) when available. This model supplies no stop or return forecast. Reassess earnings, debt and valuation independently; the fundamental model has not been historically validated.`
+      : 'This fundamental model supplies no price stop or return forecast. Data may be incomplete; historical testing of a price-trend proxy does not validate this assessment.',
   };
 }
 
@@ -277,7 +277,7 @@ function buildRiskFlags(f: Fundamentals, price: number, s200: number | null): st
   if (f.peRatio !== null && f.peRatio > 60)
     flags.push(`Very rich valuation (P/E ${f.peRatio.toFixed(0)}). Priced for perfection — little margin for disappointment.`);
   if (s200 !== null && price < s200)
-    flags.push('Below the 200-day average — the market has been marking the business down. Good fundamentals do not pay while the trend is falling.');
+    flags.push('Below the 200-day average. The long-term price trend does not confirm the bullish fundamental case.');
   return flags;
 }
 
@@ -291,7 +291,7 @@ function buildSummary(
   const quality =
     f.returnOnEquity !== null
       ? f.returnOnEquity > 0.18
-        ? 'a high-quality, high-return business'
+        ? 'a business with reported return on equity above the model threshold'
         : f.returnOnEquity > 0.1
           ? 'a decently profitable business'
           : 'a low-return business'
@@ -315,10 +315,10 @@ function buildSummary(
 
   const verb =
     verdict === 'STRONG_BUY' || verdict === 'BUY'
-      ? 'On a multi-year view this looks like a business worth accumulating on weakness rather than chasing.'
+      ? 'The available long-term rules show a bullish bias; this is not a validated return forecast.'
       : verdict === 'HOLD'
-        ? 'On a multi-year view it is a reasonable hold but not a compelling new purchase at these levels.'
-        : 'On a multi-year view the combination of fundamentals and trend does not justify a long-term position yet.';
+        ? 'The available long-term rules show mixed evidence.'
+        : 'The available long-term rules show a bearish bias; this does not forecast future returns.';
 
   return `Over months to years, this is ${quality} at ${value}, ${trend}, scoring ${score}/100 on the long-term checks. ${verb}`;
 }

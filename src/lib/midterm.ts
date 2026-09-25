@@ -75,7 +75,7 @@ export function analyzeMidTerm(bars: Bar[]): TimeframeAnalysis {
         above50 && above200
           ? `Price ${inr(price)} is above both the 50-day (${inr(s50)}) and 200-day (${inr(s200)}) SMAs — a healthy primary uptrend.`
           : !above50 && !above200
-            ? `Price ${inr(price)} is below both the 50-day (${inr(s50)}) and 200-day (${inr(s200)}) SMAs — a primary downtrend. Position longs are premature.`
+            ? `Price ${inr(price)} is below both the 50-day (${inr(s50)}) and 200-day (${inr(s200)}) SMAs — a bearish primary trend reading.`
             : `Price ${inr(price)} is on one side of its 50-day but the other of its 200-day — the trend is in transition.`,
     });
   }
@@ -93,7 +93,7 @@ export function analyzeMidTerm(bars: Bar[]): TimeframeAnalysis {
       detail:
         gap >= 0
           ? `The 50-day SMA is ${pctStr(gap)} above the 200-day (a golden-cross regime) — the intermediate trend leads the long one.`
-          : `The 50-day SMA is ${pctStr(gap)} below the 200-day (a death-cross regime) — rallies tend to be sold in this structure.`,
+          : `The 50-day SMA is ${pctStr(gap)} below the 200-day — the intermediate trend trails the longer trend.`,
     });
   }
 
@@ -110,7 +110,7 @@ export function analyzeMidTerm(bars: Bar[]): TimeframeAnalysis {
       score,
       weight: 16,
       detail: up
-        ? `The weekly chart is in an uptrend (price above a rising 10-week EMA, above the 30-week). The larger tide favours holders.`
+        ? `The weekly chart has bullish ordering: price above the 10-week EMA, which is above the 30-week EMA.`
         : down
           ? `The weekly chart is in a downtrend — price under both the 10- and 30-week EMAs. Mid-term longs fight the bigger trend.`
           : `The weekly trend is sideways; the 10- and 30-week EMAs are entangled.`,
@@ -162,7 +162,7 @@ export function analyzeMidTerm(bars: Bar[]): TimeframeAnalysis {
       weight: 8,
       detail:
         r >= 80
-          ? `RSI ${r.toFixed(1)} is very overbought — even in an uptrend, a better entry usually comes on a pullback.`
+          ? `RSI ${r.toFixed(1)} is above the rule's overbought threshold. The score penalises this extension; it does not predict a pullback.`
           : r < 30
             ? `RSI ${r.toFixed(1)} is oversold; for a position trade that is a warning, not a buy signal, unless the primary trend is up.`
             : `RSI ${r.toFixed(1)} is unremarkable for the medium term — neither stretched nor washed out.`,
@@ -179,7 +179,7 @@ export function analyzeMidTerm(bars: Bar[]): TimeframeAnalysis {
       direction: directionOf(score),
       score,
       weight: 14,
-      detail: `Price sits at ${Math.round(posInRange * 100)}% of its 52-week range (${inr(w52Low)}–${inr(w52High)}). Stocks in the upper half of their yearly range trend to persist; those near the low often keep basing.`,
+      detail: `Price sits at ${Math.round(posInRange * 100)}% of its 52-week range (${inr(w52Low)}–${inr(w52High)}). The rule assigns more positive weight to positions higher in this range; it does not establish persistence.`,
     });
   }
 
@@ -213,10 +213,10 @@ export function analyzeMidTerm(bars: Bar[]): TimeframeAnalysis {
 }
 
 const MID_VERDICT: Record<string, string> = {
-  STRONG_BUY: 'Strong buy',
-  BUY: 'Buy / add',
-  HOLD: 'Hold',
-  AVOID: 'Avoid / reduce',
+  STRONG_BUY: 'Strong bullish bias',
+  BUY: 'Bullish bias',
+  HOLD: 'Mixed evidence',
+  AVOID: 'Bearish bias',
 };
 
 /** Wider than the swing plan: position trades breathe more and aim further. */
@@ -268,16 +268,16 @@ function buildActionAndPlan(
   const buying = verdict === 'BUY' || verdict === 'STRONG_BUY';
   const action: ActionPlan = {
     headline: buying
-      ? `Build a position between ${inr(entryLow)} and ${inr(entryHigh)}, stop ${inr(stopLoss)}.`
+      ? `Illustrative entry zone ${inr(entryLow)}–${inr(entryHigh)}; model stop ${inr(stopLoss)}.`
       : verdict === 'HOLD'
-        ? 'No fresh position warranted; existing holders can stay with a trailing stop.'
-        : 'Primary trend is against a long — stand aside or reduce.',
+        ? 'The position rules show mixed evidence.'
+        : 'The position rules show bearish primary trend structure.',
     entryLow,
     entryHigh,
     stopLoss,
     target1,
     target2,
-    note: `A weekly close below ${inr(stopLoss)} breaks the position thesis. Targets ${inr(target1)} then ${inr(target2)}; trail the stop up under the rising 50-day SMA as it advances.`,
+    note: `Model risk level ${inr(stopLoss)}; illustrative targets ${inr(target1)} and ${inr(target2)}. These levels are scenarios, not forecasts. Gaps and execution costs can increase losses beyond the stop.`,
   };
 
   return { action, tradePlan };
@@ -292,7 +292,7 @@ function buildRiskFlags(
   const flags: string[] = [];
   if (s200 !== null && price < s200)
     flags.push(
-      `Below the 200-day SMA (${inr(s200)}). For a position trade this is the single biggest headwind — most sustained advances happen above it.`,
+      `Below the 200-day SMA (${inr(s200)}). The long-term trend rule does not support the bullish case.`,
     );
   if (atr14 !== null) {
     const atrPct = (atr14 / price) * 100;
@@ -300,7 +300,7 @@ function buildRiskFlags(
       flags.push(`Elevated volatility (ATR ${atrPct.toFixed(1)}% of price) — size a position smaller to survive the swings.`);
   }
   if (w52Low !== null && ((price - w52Low) / w52Low) * 100 < 10)
-    flags.push('Trading within 10% of its 52-week low — falling knives keep falling more often than they bounce.');
+    flags.push('Trading within 10% of its 52-week low. Proximity to the low does not establish support or imply a recovery.');
   return flags;
 }
 
@@ -327,15 +327,15 @@ function buildSummary(
     adxV !== null
       ? adxV > 22
         ? ' The trend has genuine strength (ADX above 22).'
-        : ' The trend is weak for now (ADX below 22), so a position entry lacks conviction.'
+        : ' ADX is at or below 22, so the trend-strength rule is neutral.'
       : '';
 
   const verb =
     verdict === 'STRONG_BUY' || verdict === 'BUY'
-      ? 'For a position trader this reads as a place to build or add, using the trend as the guide and the 50-day SMA as the trailing stop.'
+      ? 'The weighted position rules have a bullish bias. This describes the current inputs, not expected returns.'
       : verdict === 'HOLD'
-        ? 'For a position trader there is no clear edge to open new exposure; holders can stay while the trend holds.'
-        : 'For a position trader the primary trend argues against a long here; wait for it to turn up first.';
+        ? 'The weighted position rules show mixed evidence.'
+        : 'The weighted position rules have a bearish bias. This does not forecast a decline.';
 
   return `On a weeks-to-months horizon, ${price ? `at ${inr(price)} ` : ''}the stock is ${trend}, scoring ${score}/100 on the mid-term checks.${mom}${strength} ${verb}`;
 }

@@ -89,6 +89,9 @@ console.log(
 // --- Score must be reproducible from the published signals ------------------
 const tw = api.analysis.signals.reduce((a, x) => a + x.weight, 0);
 const raw = api.analysis.signals.reduce((a, x) => a + x.weight * ((x.score + 1) / 2), 0);
-check('Score reproducible', api.analysis.score, (raw / tw) * 100, 0.05);
+// The API contract publishes one decimal. Compare at that documented precision,
+// rather than treating the intentional rounding as an indicator discrepancy.
+check('Score reproducible', api.analysis.score, Math.round((raw / tw) * 1000) / 10, 0.05);
 
 console.log(fail.length ? `\n${fail.length} FAILURES: ${fail.join(', ')}` : '\nAll checks passed.');
+if (fail.length) process.exitCode = 1;

@@ -20,6 +20,7 @@ export default function NewsPanel({
 }) {
   const [items, setItems] = useState<NewsItem[] | null>(null);
   const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,7 +34,8 @@ export default function NewsPanel({
         const res = await fetch(`/api/news?company=${encodeURIComponent(company)}${fresh}`);
         const data = await res.json();
         if (cancelled) return;
-        if (data.items?.length) setItems(data.items);
+        if (!res.ok) { setItems([]); setError(true); }
+        else if (data.items?.length) setItems(data.items);
         else {
           setItems([]);
           if (data.error) setError(true);
@@ -48,11 +50,11 @@ export default function NewsPanel({
     return () => {
       cancelled = true;
     };
-  }, [company, refreshKey]);
+  }, [company, refreshKey, attempt]);
 
   if (items === null) {
     return (
-      <div className="space-y-2 p-4">
+      <div className="space-y-2 p-4" role="status" aria-label="Loading news headlines">
         {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="h-12 animate-pulse rounded-lg bg-[var(--surface-2)]" />
         ))}
@@ -62,9 +64,10 @@ export default function NewsPanel({
 
   if (items.length === 0) {
     return (
-      <p className="px-5 py-4 text-sm text-[var(--muted)]">
-        {error ? 'Could not load news right now.' : 'No recent news found for this stock.'}
-      </p>
+      <div className="px-5 py-4 text-sm text-[var(--muted)]">
+        <p role={error ? 'alert' : undefined}>{error ? 'Could not load news right now.' : 'No recent news found for this stock.'}</p>
+        {error && <button className="btn-glass mt-3" onClick={() => setAttempt(n => n + 1)}>Retry news</button>}
+      </div>
     );
   }
 
@@ -97,7 +100,7 @@ export default function NewsPanel({
         ))}
       </ul>
       <p className="px-5 py-2.5 text-[11px] text-[var(--muted)]">
-        Headlines via Google News. StockScope does not endorse any source — read them as leads to
+        Headlines via Google News. NIVRA does not endorse any source — read them as leads to
         verify, not facts.
       </p>
     </>

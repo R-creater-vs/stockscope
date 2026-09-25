@@ -1,0 +1,332 @@
+{
+  "capturedAt": "2026-09-25T14:12:04.931Z",
+  "base": "http://localhost:3000",
+  "browser": "Chrome/154.0.8037.57",
+  "results": [
+    {
+      "viewport": "desktop",
+      "view": "overview",
+      "layout": {
+        "width": 1440,
+        "documentWidth": 1432,
+        "overflow": false,
+        "h1s": 1,
+        "smallTargets": []
+      },
+      "accessibility": {
+        "violations": [],
+        "passes": 26,
+        "incomplete": [
+          "aria-prohibited-attr",
+          "color-contrast"
+        ]
+      }
+    },
+    {
+      "viewport": "desktop",
+      "view": "discover",
+      "layout": {
+        "width": 1440,
+        "documentWidth": 1432,
+        "overflow": false,
+        "h1s": 1,
+        "smallTargets": []
+      },
+      "accessibility": {
+        "violations": [],
+        "passes": 27,
+        "incomplete": [
+          "aria-prohibited-attr"
+        ]
+      }
+    },
+    {
+      "viewport": "desktop",
+      "view": "report",
+      "layout": {
+        "width": 1440,
+        "documentWidth": 1432,
+        "overflow": false,
+        "h1s": 1,
+        "smallTargets": []
+      },
+      "accessibility": {
+        "violations": [],
+        "passes": 26,
+        "incomplete": [
+          "color-contrast"
+        ]
+      }
+    },
+    {
+      "viewport": "desktop",
+      "view": "watchlist",
+      "layout": {
+        "width": 1440,
+        "documentWidth": 1440,
+        "overflow": false,
+        "h1s": 1,
+        "smallTargets": []
+      },
+      "accessibility": {
+        "violations": [],
+        "passes": 26,
+        "incomplete": [
+          "color-contrast"
+        ]
+      }
+    },
+    {
+      "viewport": "desktop",
+      "view": "alerts",
+      "layout": {
+        "width": 1440,
+        "documentWidth": 1432,
+        "overflow": false,
+        "h1s": 1,
+        "smallTargets": []
+      },
+      "accessibility": {
+        "violations": [],
+        "passes": 26,
+        "incomplete": []
+      }
+    },
+    {
+      "viewport": "desktop",
+      "view": "evidence",
+      "layout": {
+        "width": 1440,
+        "documentWidth": 1432,
+        "overflow": false,
+        "h1s": 1,
+        "smallTargets": []
+      },
+      "accessibility": {
+        "violations": [],
+        "passes": 25,
+        "incomplete": []
+      }
+    },
+    {
+      "viewport": "mobile",
+      "view": "overview",
+      "layout": {
+        "width": 390,
+        "documentWidth": 390,
+        "overflow": false,
+        "h1s": 1,
+        "smallTargets": []
+      },
+      "accessibility": {
+        "violations": [],
+        "passes": 26,
+        "incomplete": [
+          "aria-prohibited-attr",
+          "color-contrast"
+        ]
+      }
+    },
+    {
+      "viewport": "mobile",
+      "view": "discover",
+      "layout": {
+        "width": 390,
+        "documentWidth": 390,
+        "overflow": false,
+        "h1s": 1,
+        "smallTargets": []
+      },
+      "accessibility": {
+        "violations": [],
+        "passes": 28,
+        "incomplete": [
+          "aria-prohibited-attr",
+          "color-contrast"
+        ]
+      }
+    },
+    {
+      "viewport": "mobile",
+      "view": "report",
+      "layout": {
+        "width": 390,
+        "documentWidth": 390,
+        "overflow": false,
+        "h1s": 1,
+        "smallTargets": []
+      },
+      "accessibility": {
+        "violations": [],
+        "passes": 26,
+        "incomplete": [
+          "color-contrast"
+        ]
+      }
+    },
+    {
+      "viewport": "mobile",
+      "view": "watchlist",
+      "layout": {
+        "width": 390,
+        "documentWidth": 390,
+        "overflow": false,
+        "h1s": 1,
+        "smallTargets": []
+      },
+      "accessibility": {
+        "violations": [],
+        "passes": 26,
+        "incomplete": [
+          "color-contrast"
+        ]
+      }
+    },
+    {
+      "viewport": "mobile",
+      "view": "alerts",
+      "layout": {
+        "width": 390,
+        "documentWidth": 390,
+        "overflow": false,
+        "h1s": 1,
+        "smallTargets": []
+      },
+      "accessibility": {
+        "violations": [],
+        "passes": 26,
+        "incomplete": []
+      }
+    },
+    {
+      "viewport": "mobile",
+      "view": "evidence",
+      "layout": {
+        "width": 390,
+        "documentWidth": 390,
+        "overflow": false,
+        "h1s": 1,
+        "smallTargets": []
+      },
+      "accessibility": {
+        "violations": [],
+        "passes": 25,
+        "incomplete": []
+      }
+    },
+    {
+      "viewport": 320,
+      "view": "report",
+      "overflow": false
+    },
+    {
+      "viewport": 375,
+      "view": "report",
+      "overflow": false
+    },
+    {
+      "viewport": 768,
+      "view": "report",
+      "overflow": false
+    },
+    {
+      "interactions": [
+        {
+          "name": "Discover filter narrows actual scan",
+          "passed": true
+        },
+        {
+          "name": "Search has keyboard active descendant",
+          "passed": true
+        },
+        {
+          "name": "Keyboard search opens report and focuses heading",
+          "passed": true
+        },
+        {
+          "name": "Report search disclosure stays reachable",
+          "passed": true
+        },
+        {
+          "name": "Signal evidence uses the selected engine score",
+          "passed": true
+        },
+        {
+          "name": "Watchlist removal persists through reload",
+          "passed": true
+        },
+        {
+          "name": "Alert form saves actual threshold and timeframe",
+          "passed": true
+        },
+        {
+          "name": "Saved alert uses stored threshold after form edits",
+          "passed": true
+        },
+        {
+          "name": "Reduced motion disables CSS animation",
+          "passed": true
+        },
+        {
+          "name": "Failed report offers a visible error",
+          "passed": true
+        },
+        {
+          "name": "Browser Back clears failed report error",
+          "passed": true
+        },
+        {
+          "name": "Empty watchlist offers Discover",
+          "passed": true
+        },
+        {
+          "name": "Loaded app reports offline status",
+          "passed": true
+        },
+        {
+          "name": "Offline navigation shows explicit fallback",
+          "passed": true
+        }
+      ],
+      "localPerformance": [
+        {
+          "view": "overview",
+          "cache": "browser cache disabled; server and source caches warm; no CPU or network throttle",
+          "observedAt": 598.5999999999767,
+          "lcp": 96,
+          "cls": 0,
+          "longTasks": 0,
+          "longTaskOver50Ms": 0,
+          "navigation": [
+            {
+              "domContentLoaded": 29.20000000006985,
+              "responseEnd": 8.800000000046566,
+              "load": 89.70000000006985
+            }
+          ],
+          "scriptTransferBytes": 156818,
+          "scriptDecodedBytes": 543038
+        },
+        {
+          "view": "report",
+          "cache": "browser cache disabled; server and source caches warm; no CPU or network throttle",
+          "observedAt": 855.6000000000931,
+          "lcp": 468,
+          "cls": 0,
+          "longTasks": 1,
+          "longTaskOver50Ms": 2,
+          "navigation": [
+            {
+              "domContentLoaded": 32,
+              "responseEnd": 7.600000000093132,
+              "load": 69.80000000004657
+            }
+          ],
+          "scriptTransferBytes": 305429,
+          "scriptDecodedBytes": 1051273
+        }
+      ]
+    }
+  ],
+  "errors": []
+}

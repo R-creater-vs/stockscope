@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Area, AreaChart, ResponsiveContainer, YAxis } from 'recharts';
+import { Line, LineChart, ResponsiveContainer, Tooltip, YAxis } from 'recharts';
 import { inr } from '@/lib/format';
 
 /**
@@ -29,6 +29,7 @@ export default function LiveChart({
   const [prevClose, setPrevClose] = useState<number | null>(null);
   const [status, setStatus] = useState<Status>('loading');
   const [at, setAt] = useState<string>('');
+  const [stale, setStale] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -39,6 +40,7 @@ export default function LiveChart({
         const data = await res.json();
         if (cancelled) return;
         if (!res.ok || data.error) {
+          setStale(true);
           setStatus((s) => (s === 'ok' ? 'ok' : 'error'));
           return;
         }
@@ -47,8 +49,9 @@ export default function LiveChart({
         setPrevClose(typeof data.prevClose === 'number' ? data.prevClose : null);
         setAt(data.at ?? '');
         setStatus(pts.length ? 'ok' : 'empty');
+        setStale(false);
       } catch {
-        if (!cancelled) setStatus((s) => (s === 'ok' ? 'ok' : 'error'));
+        if (!cancelled) { setStale(true); setStatus((s) => (s === 'ok' ? 'ok' : 'error')); }
       }
     };
 
@@ -83,36 +86,35 @@ export default function LiveChart({
   const pad = (hi - lo) * 0.15 || price * 0.002 || 1;
 
   return (
-    <section className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+    <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]" aria-label="Latest session price chart">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-3.5">
         <div className="flex items-center gap-3">
-          <h2 className="text-sm font-semibold uppercase tracking-wider">Price today</h2>
+          <h2 className="text-sm font-semibold">Latest session</h2>
           <span
-            className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+            className="inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs"
             style={{ color: 'var(--muted)', background: 'var(--surface-2)' }}
-            title="Real market data, delayed roughly 15 minutes by the free data source — fine for swing trading"
+            title="Yahoo prices are delayed. The displayed candle time describes the data; retrieval time only describes the last request."
           >
-            Delayed ~15m
+            Yahoo · delayed
           </span>
         </div>
         <div className="flex items-baseline gap-2.5">
           <span className="tnum text-2xl font-bold" style={{ color: up ? 'var(--bull)' : 'var(--bear)' }}>
             {inr(price)}
           </span>
-          <span className="tnum text-sm font-medium" style={{ color: up ? 'var(--bull)' : 'var(--bear)' }}>
+          {points.length > 0 && <span className="tnum text-sm font-medium" style={{ color: up ? 'var(--bull)' : 'var(--bear)' }}>
             {up ? '▲' : '▼'} {up ? '+' : ''}
             {change.toFixed(2)} ({up ? '+' : ''}
             {changePct.toFixed(2)}%)
-          </span>
+          </span>}
         </div>
       </header>
 
       <div className="px-1 pb-3 pt-4">
         {status === 'loading' ? (
-          <div className="grid h-[180px] place-items-center">
+          <div role="status" className="grid h-[180px] place-items-center">
             <div className="flex items-center gap-2 text-sm text-[var(--muted)]">
-              <span className="h-2 w-2 animate-ping rounded-full bg-[var(--accent)]" />
-              Loading today&apos;s prices…
+              Loading the latest available session…
             </div>
           </div>
         ) : status === 'error' ? (
@@ -122,45 +124,42 @@ export default function LiveChart({
         ) : points.length < 2 ? (
           <div className="grid h-[180px] place-items-center px-6 text-center">
             <p className="text-sm text-[var(--muted)]">
-              No intraday movement yet — the market may be closed. The daily chart below has the full
-              picture.
+              Not enough intraday observations to draw a chart. Use the daily price history for context.
             </p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={180}>
-            <AreaChart data={points} margin={{ top: 6, right: 14, bottom: 0, left: 6 }}>
-              <defs>
-                <linearGradient id="intradayFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={lineColor} stopOpacity={0.25} />
-                  <stop offset="100%" stopColor={lineColor} stopOpacity={0} />
-                </linearGradient>
-              </defs>
+            <LineChart data={points} margin={{ top: 6, right: 14, bottom: 0, left: 6 }} accessibilityLayer>
               <YAxis
                 domain={[lo - pad, hi + pad]}
                 orientation="right"
                 width={52}
-                tick={{ fill: 'var(--muted)', fontSize: 11 }}
+                tick={{ fill: 'var(--muted)', fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={(v: number) => v.toFixed(1)}
               />
-              <Area
+              <Tooltip contentStyle={{ background: 'var(--surface-2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--foreground)' }} formatter={(value) => [inr(Number(value)), 'Price']} labelFormatter={(_, payload) => payload[0]?.payload?.t ? new Date(payload[0].payload.t).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' }) + ' IST' : ''} />
+              <Line
                 type="monotone"
                 dataKey="p"
                 stroke={lineColor}
                 strokeWidth={1.8}
-                fill="url(#intradayFill)"
                 isAnimationActive={false}
                 dot={false}
               />
-            </AreaChart>
+            </LineChart>
           </ResponsiveContainer>
         )}
 
-        <p className="mt-1 px-4 text-[11px] text-[var(--muted-2)]">
-          Today&apos;s session, 5-minute bars · real data, delayed ~15 min · refreshes every minute
-          {at ? ` · updated ${new Date(at).toLocaleTimeString('en-IN')}` : ''}.
+        <p className="mt-2 px-4 text-xs leading-relaxed text-[var(--muted)]">
+          5-minute observations · checks every 60s · prices remain delayed.
+          {points.length > 0 && ` Change measured from ${prevClose === null ? 'the first available session observation' : 'previous close'}.`}
         </p>
+        {points.length > 0 && <p className="mt-1 px-4 text-xs text-[var(--muted)]">Latest candle: {new Date(points[points.length - 1].t).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} IST.</p>}
+        {at && <p className="mt-1 px-4 text-xs text-[var(--muted)]">Retrieved {new Date(at).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST. Retrieval time is not market-data freshness.</p>}
+        {stale && points.length > 0 && <p role="status" className="mt-2 px-4 text-xs text-[var(--warn)]">Refresh failed. The chart shows the last received observations.</p>}
+        {points.length > 1 && <p className="sr-only">Price ranged from {inr(lo)} to {inr(hi)} in this session. Last observation {inr(price)}, {up ? 'up' : 'down'} {Math.abs(changePct).toFixed(2)} percent from {prevClose === null ? 'the first observation' : 'previous close'}.</p>}
       </div>
     </section>
   );

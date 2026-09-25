@@ -30,7 +30,10 @@ export async function buildNarrative(
 
   try {
     const text = await ollamaNarrative(company, analysis);
-    if (text && text.length > 80) return { text, source: 'ollama' };
+    // Keep figures in deterministic components. If the model introduces any
+    // numerical prose, use the computed template instead of displaying it.
+    const hasFigures = /\p{N}|[₹%]|\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|lakh|crore|million|billion|percent|percentage)\b/iu.test(text);
+    if (text && text.length > 80 && !hasFigures) return { text, source: 'ollama' };
   } catch {
     // Ollama absent or slow — the template is a perfectly good answer.
   }
@@ -78,10 +81,11 @@ function buildPrompt(company: CompanyData, a: SwingAnalysis): string {
 Write a 3-paragraph analysis of ${company.profile.name} (${company.profile.symbol}), currently trading at ₹${company.quote.price.toFixed(2)}.
 
 RULES — follow these exactly:
-1. Use ONLY the numbers given below. Never invent a figure, date, or news event.
-2. Do not predict a specific future price. Discuss setup quality and risk instead.
+1. Explain qualitatively. Do not output any numbers, dates, prices, percentages, ratios, number words, or calculations. The interface displays all figures directly from deterministic code. Never invent a news event.
+2. Do not predict future prices, profits, hit rates, or a trading edge. The weighted swing model has no demonstrated stable trading edge. A bullish rule direction does not establish a profitable entry.
 3. Write in plain, direct English. No hype, no emoji, no bullet lists.
-4. Paragraph 1: what the price action is doing right now. Paragraph 2: the strongest argument against the trade. Paragraph 3: what the trader should concretely do and what would invalidate the idea.
+4. Paragraph 1: describe the observed price structure. Paragraph 2: explain conflicting evidence and risk. Paragraph 3: explain what the displayed illustrative trade plan means, including gap risk and the model's lack of demonstrated edge. Do not instruct the reader to buy or sell.
+5. Confidence measures agreement and trend clarity, adjusted for weekly alignment; it is never a probability of profit. Do not claim that an inverted score has a proven edge.
 
 COMPUTED VERDICT: ${a.verdict} (technical score ${a.score}/100, confidence ${a.confidenceLabel})
 
@@ -105,10 +109,10 @@ function templateNarrative(company: CompanyData, a: SwingAnalysis): string {
   const s = a.snapshot;
 
   const verdictPhrase: Record<SwingAnalysis['verdict'], string> = {
-    STRONG_BUY: 'a high-quality long setup',
-    BUY: 'a workable long setup',
-    HOLD: 'no clear edge in either direction right now',
-    AVOID: 'a setup best left alone by swing traders',
+    STRONG_BUY: 'a strong bullish direction in the weighted rules',
+    BUY: 'a bullish direction in the weighted rules',
+    HOLD: 'mixed evidence in the weighted rules',
+    AVOID: 'a bearish direction in the weighted rules',
   };
 
   const paras: string[] = [];
@@ -148,37 +152,37 @@ function templateNarrative(company: CompanyData, a: SwingAnalysis): string {
     a.bearPoints.length > 0
       ? `The clearest argument against acting here: ${lowerFirst(a.bearPoints[0])}` +
         (a.bearPoints.length > 1 ? ` ${a.bearPoints[1]}` : '')
-      : `No individual signal is outright bearish, which is itself worth noting — unanimous readings often show up near short-term exhaustion points rather than at the start of a move.`;
+      : `No individual signal is labelled bearish. Agreement among related technical indicators does not establish that a trade will be profitable.`;
   const riskLine = a.riskFlags.length ? ` ${a.riskFlags[0]}` : '';
   paras.push(against + riskLine);
 
   // --- What to actually do ---------------------------------------------------
   if (a.plan && (a.verdict === 'BUY' || a.verdict === 'STRONG_BUY')) {
     paras.push(
-      `If you take the trade, the structure is an entry between ₹${a.plan.entryLow.toFixed(2)} and ₹${a.plan.entryHigh.toFixed(2)}, ` +
+      `The illustrative trade plan uses an entry zone between ₹${a.plan.entryLow.toFixed(2)} and ₹${a.plan.entryHigh.toFixed(2)}, ` +
         `a stop at ₹${a.plan.stopLoss.toFixed(2)} (₹${a.plan.riskPerShare.toFixed(2)} of risk per share), and a first target at ₹${a.plan.target1.toFixed(2)} — ` +
         `a reward-to-risk of ${a.plan.riskReward.toFixed(2)}:1. ` +
-        `A daily close below the stop invalidates the idea; exit rather than average down. ` +
-        `Confidence in this read is ${a.confidenceLabel.toLowerCase()} (${a.confidence}%), based on how much the individual signals agree and how cleanly the stock is trending.`,
+        `These are model levels, not price forecasts; gaps, liquidity and costs can increase losses beyond the planned stop. ` +
+        `Rule confidence is ${a.confidenceLabel.toLowerCase()} (${a.confidence}/100), based on signal agreement, trend clarity and weekly alignment. It is not a probability of profit. The model has no demonstrated stable trading edge.`,
     );
   } else if (a.verdict === 'HOLD') {
     paras.push(
-      `The practical move is to wait rather than force an entry. ` +
+      `The model currently describes a mixed setup. ` +
         (a.levels.resistance[0]
-          ? `A decisive close above ₹${a.levels.resistance[0].toFixed(2)} would turn this into an actionable long; `
+          ? `The nearest identified resistance is ₹${a.levels.resistance[0].toFixed(2)}; `
           : '') +
         (a.levels.support[0]
-          ? `a break below ₹${a.levels.support[0].toFixed(2)} would confirm the bearish case. `
+          ? `the nearest identified support is ₹${a.levels.support[0].toFixed(2)}. `
           : '') +
-        `Existing holders have no technical reason to exit yet, but new capital has better places to go today. Confidence is ${a.confidenceLabel.toLowerCase()} (${a.confidence}%).`,
+        `These historical levels may not hold. Rule confidence is ${a.confidenceLabel.toLowerCase()} (${a.confidence}/100), not a probability of profit. The model has no demonstrated stable trading edge.`,
     );
   } else {
     paras.push(
-      `For a swing trader the correct action is to stand aside. ` +
+      `The weighted rules currently describe bearish structure. ` +
         (a.levels.resistance[0]
-          ? `Reconsider only on a reclaim of ₹${a.levels.resistance[0].toFixed(2)} with above-average volume. `
+          ? `The nearest identified resistance is ₹${a.levels.resistance[0].toFixed(2)}. `
           : '') +
-        `Being out of a weak chart costs nothing but opportunity; being in one costs capital. Confidence is ${a.confidenceLabel.toLowerCase()} (${a.confidence}%).`,
+        `This describes current inputs and does not forecast a decline. Rule confidence is ${a.confidenceLabel.toLowerCase()} (${a.confidence}/100), not a probability of profit. The model has no demonstrated stable trading edge.`,
     );
   }
 

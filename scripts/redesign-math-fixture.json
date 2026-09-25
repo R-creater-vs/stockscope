@@ -1,0 +1,254 @@
+{
+  "analyzeSwing/-0.35/240": {
+    "numericHash": "187ba34424ea971b893c2c6a26050998c9b87a9cb6c842ccd733aecf8b3d1047",
+    "verdict": "AVOID",
+    "confidenceLabel": "High",
+    "directions": [
+      "bearish",
+      "bearish",
+      "bearish",
+      "neutral",
+      "bearish",
+      "neutral",
+      "bearish",
+      "bearish"
+    ]
+  },
+  "analyzeMidTerm/-0.35/240": {
+    "numericHash": "6361ba4e5b287c7e2f1ee355f12d6d2340c30e8b437dba584a41c2e8957c1be8",
+    "verdict": "AVOID",
+    "confidenceLabel": "High",
+    "directions": [
+      "bearish",
+      "bearish",
+      "bearish",
+      "bearish",
+      "bearish",
+      "neutral",
+      "bearish"
+    ]
+  },
+  "analyzeLongTerm/-0.35/240": {
+    "numericHash": "d5fe60bae18d2077f888f1906ace0fab952abb4b310eefa3eb17149f080fb79a",
+    "verdict": "HOLD",
+    "confidenceLabel": "High",
+    "directions": [
+      "bullish",
+      "bullish",
+      "neutral",
+      "bullish",
+      "bearish",
+      "bullish"
+    ]
+  },
+  "analyzeSwing/-0.35/650": {
+    "numericHash": "03b02aea9ccaa084b00db0bf246ee42c132b7921e0a639b51fba442140fc3b8d",
+    "verdict": "AVOID",
+    "confidenceLabel": "High",
+    "directions": [
+      "bearish",
+      "bearish",
+      "bearish",
+      "bearish",
+      "bullish",
+      "bullish",
+      "neutral",
+      "bearish"
+    ]
+  },
+  "analyzeMidTerm/-0.35/650": {
+    "numericHash": "224d0f9786bd380874ce0d34b904d6cc17568650719dfc92c1cbdf16c533dbd7",
+    "verdict": "AVOID",
+    "confidenceLabel": "High",
+    "directions": [
+      "bearish",
+      "bearish",
+      "bearish",
+      "bearish",
+      "bearish",
+      "bearish",
+      "bearish"
+    ]
+  },
+  "analyzeLongTerm/-0.35/650": {
+    "numericHash": "d5fe60bae18d2077f888f1906ace0fab952abb4b310eefa3eb17149f080fb79a",
+    "verdict": "HOLD",
+    "confidenceLabel": "High",
+    "directions": [
+      "bullish",
+      "bullish",
+      "neutral",
+      "bullish",
+      "bearish",
+      "bullish"
+    ]
+  },
+  "analyzeSwing/0/240": {
+    "numericHash": "240e0c73ceb8f93554d23b1cf0f55ffb5d610f45f795ba27778ba9691d2da0bd",
+    "verdict": "AVOID",
+    "confidenceLabel": "High",
+    "directions": [
+      "bearish",
+      "bearish",
+      "bearish",
+      "neutral",
+      "bearish",
+      "neutral",
+      "bearish",
+      "bearish"
+    ]
+  },
+  "analyzeMidTerm/0/240": {
+    "numericHash": "90691a24aaefa040b4bad11457a51b08336cc9b7f70ce0722b5b2aee7e013478",
+    "verdict": "AVOID",
+    "confidenceLabel": "High",
+    "directions": [
+      "bearish",
+      "neutral",
+      "bearish",
+      "bearish",
+      "bearish",
+      "neutral",
+      "bearish"
+    ]
+  },
+  "analyzeLongTerm/0/240": {
+    "numericHash": "d5fe60bae18d2077f888f1906ace0fab952abb4b310eefa3eb17149f080fb79a",
+    "verdict": "HOLD",
+    "confidenceLabel": "High",
+    "directions": [
+      "bullish",
+      "bullish",
+      "neutral",
+      "bullish",
+      "bearish",
+      "bullish"
+    ]
+  },
+  "analyzeSwing/0/650": {
+    "numericHash": "233efa1d141b7ac4518dee15756ed22b60dfd1fee2d4a6cc0c52c3eac5e23750",
+    "verdict": "BUY",
+    "confidenceLabel": "High",
+    "directions": [
+      "neutral",
+      "neutral",
+      "bullish",
+      "neutral",
+      "bullish",
+      "bullish",
+      "bullish",
+      "neutral"
+    ]
+  },
+  "analyzeMidTerm/0/650": {
+    "numericHash": "9bc222e6fd364ceb23721e44631dcc7340bdef9b0b984b25659b0ce5a028e126",
+    "verdict": "AVOID",
+    "confidenceLabel": "Moderate",
+    "directions": [
+      "bearish",
+      "neutral",
+      "bearish",
+      "bullish",
+      "neutral",
+      "bullish",
+      "bearish"
+    ]
+  },
+  "analyzeLongTerm/0/650": {
+    "numericHash": "d5fe60bae18d2077f888f1906ace0fab952abb4b310eefa3eb17149f080fb79a",
+    "verdict": "HOLD",
+    "confidenceLabel": "High",
+    "directions": [
+      "bullish",
+      "bullish",
+      "neutral",
+      "bullish",
+      "bearish",
+      "bullish"
+    ]
+  },
+  "analyzeSwing/0.35/240": {
+    "numericHash": "771fac79a798cc85b6b99f23576ea69b3c9f573fa8de3b5bbd46c4ffa2bff2f5",
+    "verdict": "AVOID",
+    "confidenceLabel": "High",
+    "directions": [
+      "bearish",
+      "neutral",
+      "bearish",
+      "neutral",
+      "bearish",
+      "neutral",
+      "bearish",
+      "bearish"
+    ]
+  },
+  "analyzeMidTerm/0.35/240": {
+    "numericHash": "150e79ae3cb8d6eda08ba084733eab8f75e1826a5d13c6a1077ea3533c4165e0",
+    "verdict": "HOLD",
+    "confidenceLabel": "High",
+    "directions": [
+      "bullish",
+      "bullish",
+      "neutral",
+      "bearish",
+      "neutral",
+      "neutral",
+      "bullish"
+    ]
+  },
+  "analyzeLongTerm/0.35/240": {
+    "numericHash": "673e3e6417d4665aade089fa78204e349790b395c59be87e5dbf3c375b00b1a1",
+    "verdict": "BUY",
+    "confidenceLabel": "High",
+    "directions": [
+      "bullish",
+      "bullish",
+      "neutral",
+      "bullish",
+      "bullish",
+      "bullish"
+    ]
+  },
+  "analyzeSwing/0.35/650": {
+    "numericHash": "56c6c872d442e6e9a5c998a7a4b4f2de313f1b9f9b99f99e5cd9cb59ddc59eae",
+    "verdict": "STRONG_BUY",
+    "confidenceLabel": "High",
+    "directions": [
+      "bullish",
+      "neutral",
+      "bullish",
+      "bearish",
+      "bullish",
+      "bullish",
+      "bullish",
+      "bullish"
+    ]
+  },
+  "analyzeMidTerm/0.35/650": {
+    "numericHash": "98ef521d2f358388c643f8c729a41770078956864c916e300ee0deedf2a9951b",
+    "verdict": "STRONG_BUY",
+    "confidenceLabel": "High",
+    "directions": [
+      "bullish",
+      "bullish",
+      "bullish",
+      "bullish",
+      "neutral",
+      "bullish",
+      "bullish"
+    ]
+  },
+  "analyzeLongTerm/0.35/650": {
+    "numericHash": "290536e0b9b549daeec4ffd18e6097a66a4dc011aba9b9ca73f3e841aa2d11ff",
+    "verdict": "STRONG_BUY",
+    "confidenceLabel": "High",
+    "directions": [
+      "bullish",
+      "bullish",
+      "neutral",
+      "bullish",
+      "bullish",
+      "bullish"
+    ]
+  }
+}

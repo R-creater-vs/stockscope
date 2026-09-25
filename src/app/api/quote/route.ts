@@ -15,7 +15,9 @@ export async function GET(req: NextRequest) {
   if (!q) return NextResponse.json({ error: 'symbol required' }, { status: 400 });
 
   try {
-    const match = await resolveSymbol(q);
+    // The overview requests the configured index's provider market status.
+    // Equity search intentionally excludes indices; allow this one known symbol.
+    const match = q === '^NSEI' ? { symbol: '^NSEI' } : await resolveSymbol(q);
     if (!match) return NextResponse.json({ error: 'not found' }, { status: 404 });
     const company = await fetchCompany(match.symbol);
     return NextResponse.json({

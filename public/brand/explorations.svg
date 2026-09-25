@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="1000" viewBox="0 0 1320 1000" role="img" aria-label="NIVRA brand direction and three logo explorations"><title>NIVRA brand direction and three logo explorations</title>
+<rect width="1320" height="1000" fill="#f0f0e8"/>
+<rect width="1320" height="370" fill="#101714"/>
+<g transform="translate(72 64) scale(1.4)"><path fill="#d6ed8b" d="M5 5H27V11H11V19H5Z M27 27H5V21H21V13H27Z"/></g>
+<g transform="translate(132 72) scale(1.05)"><path fill="#f0f0e8" fill-rule="evenodd" d="M0 30V2H5L20 22V2H25V30H20L5 10V30Z M34 2H39V30H34Z M47 2H52L61 23L70 2H75L63.5 30H58.5Z M83 30V2H96C103 2 108 5.5 108 11.5C108 16 105.5 19 101.5 20.3L110 30H103.5L95.5 21H88V30Z M88 6.5V16.5H95.5C100.5 16.5 103 15 103 11.5C103 8 100.5 6.5 95.5 6.5Z M115 30L126.5 2H132L143.5 30H138L135.5 23.5H123L120.5 30Z M125 19H133.5L129.25 8Z"/></g>
+<g font-family="Arial, sans-serif">
+<text x="72" y="180" fill="#f0f0e8" font-size="45" letter-spacing="-1">Understand the setup.</text>
+<text x="72" y="238" fill="#f0f0e8" font-size="45" letter-spacing="-1">See the risk. Decide with clarity.</text>
+<text x="72" y="310" fill="#a4b0a8" font-size="18">IDENTITY STUDY / PROVISIONAL NAME / SEPTEMBER 2026</text>
+<text x="72" y="432" fill="#101714" font-size="13" letter-spacing="2">01 / SIGNAL APERTURE</text>
+<text x="500" y="432" fill="#101714" font-size="13" letter-spacing="2">02 / INTERVAL</text>
+<text x="918" y="432" fill="#101714" font-size="13" letter-spacing="2">03 / PARALLAX</text>
+<g transform="translate(72 475) scale(4)"><path fill="#101714" d="M5 5H27V11H11V19H5Z M27 27H5V21H21V13H27Z"/></g>
+<g fill="#101714" transform="translate(500 475) scale(4)"><path d="M4 5H25V11H4Z M9 14H28V20H9Z M4 23H25V29H4Z"/></g>
+<g fill="none" stroke="#101714" stroke-width="5" transform="translate(918 475) scale(4)"><path d="M14 5H5V27H14 M18 5H27V27H18"/><circle cx="16" cy="16" r="4" fill="#101714" stroke="none"/></g>
+<text x="72" y="652" fill="#101714" font-size="22">Selected: an open reading field</text>
+<text x="72" y="686" fill="#536257" font-size="17">Two opposed frames. Evidence in balance.</text>
+<text x="72" y="712" fill="#536257" font-size="17">Clear at 16 px. Quiet, directional tension.</text>
+<text x="500" y="652" fill="#101714" font-size="22">Rhythm and sequence</text>
+<text x="500" y="686" fill="#536257" font-size="17">Useful structure, but too close to a</text>
+<text x="500" y="712" fill="#536257" font-size="17">generic menu or stacked data mark.</text>
+<text x="918" y="652" fill="#101714" font-size="22">Aligned viewpoints</text>
+<text x="918" y="686" fill="#536257" font-size="17">Clear focus, but the central dot</text>
+<text x="918" y="712" fill="#536257" font-size="17">becomes crowded at favicon sizes.</text>
+<line x1="72" y1="765" x2="1248" y2="765" stroke="#ccd2c8"/>
+<rect x="72" y="804" width="200" height="74" fill="#101714"/>
+<rect x="286" y="804" width="200" height="74" fill="#d6ed8b"/>
+<rect x="500" y="804" width="200" height="74" fill="#dce1d7"/>
+<text x="72" y="908" fill="#101714" font-size="15">INK / #101714</text>
+<text x="286" y="908" fill="#101714" font-size="15">CITRON / #D6ED8B</text>
+<text x="500" y="908" fill="#101714" font-size="15">WARM NEUTRALS</text>
+<g transform="translate(850 825) scale(.5)"><path fill="#101714" d="M5 5H27V11H11V19H5Z M27 27H5V21H21V13H27Z"/></g>
+<g transform="translate(906 814)"><path fill="#101714" d="M5 5H27V11H11V19H5Z M27 27H5V21H21V13H27Z"/></g>
+<g transform="translate(978 798) scale(2)"><path fill="#101714" d="M5 5H27V11H11V19H5Z M27 27H5V21H21V13H27Z"/></g>
+<g transform="translate(1090 790) scale(2.75)"><path fill="#101714" d="M5 5H27V11H11V19H5Z M27 27H5V21H21V13H27Z"/></g>
+<text x="850" y="908" fill="#101714" font-size="15">16 / 32 / 64 / 88 PX</text>
+<text x="72" y="963" fill="#536257" font-size="14">Working identity only. Name conflicts found; trademark and launch-domain clearance remain outstanding.</text>
+</g></svg>

@@ -60,7 +60,7 @@ async function fetchTier(query: string, fresh = false): Promise<NewsItem[]> {
   const url = `${RSS_BASE}?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en`;
 
   const res = await fetch(url, {
-    headers: { 'User-Agent': 'Mozilla/5.0 (StockScope news reader)' },
+    headers: { 'User-Agent': 'Mozilla/5.0 (NIVRA news reader)' },
     signal: AbortSignal.timeout(8000),
     // Normally news tolerates being a few minutes stale, so let the platform
     // cache it. An explicit refresh bypasses that cache for a genuinely fresh pull.

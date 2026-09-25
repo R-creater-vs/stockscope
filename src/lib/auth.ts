@@ -24,7 +24,7 @@ export const SESSION_COOKIE = 'ss_session';
 export const OAUTH_STATE_COOKIE = 'ss_oauth_state';
 export const SESSION_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
-const SECRET_PATH = process.env.STOCKSCOPE_AUTH_PATH ?? join(process.cwd(), '.data', 'auth.json');
+const SECRET_PATH = process.env.STOCKSCOPE_AUTH_PATH ?? join(/* turbopackIgnore: true */ process.cwd(), '.data', 'auth.json');
 
 /* --------------------------------------------------------------- secret */
 
@@ -34,12 +34,13 @@ function secret(): string {
   if (cachedSecret) return cachedSecret;
   if (process.env.AUTH_SECRET) {
     cachedSecret = process.env.AUTH_SECRET;
-  } else if (existsSync(SECRET_PATH)) {
-    cachedSecret = (JSON.parse(readFileSync(SECRET_PATH, 'utf8')) as { secret: string }).secret;
+  } else if (existsSync(/* turbopackIgnore: true */ SECRET_PATH)) {
+    // Provisioned at runtime; local signing secrets must not enter build traces.
+    cachedSecret = (JSON.parse(readFileSync(/* turbopackIgnore: true */ SECRET_PATH, 'utf8')) as { secret: string }).secret;
   } else {
     cachedSecret = randomBytes(32).toString('hex');
     mkdirSync(dirname(SECRET_PATH), { recursive: true });
-    writeFileSync(SECRET_PATH, JSON.stringify({ secret: cachedSecret }, null, 2));
+    writeFileSync(/* turbopackIgnore: true */ SECRET_PATH, JSON.stringify({ secret: cachedSecret }, null, 2));
   }
   return cachedSecret;
 }

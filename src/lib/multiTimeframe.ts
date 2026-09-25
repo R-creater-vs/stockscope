@@ -12,10 +12,10 @@ import type { CompanyData } from './yahoo';
 import { inr, type ActionPlan, type TimeframeAnalysis } from './timeframes';
 
 const SHORT_VERDICT: Record<string, string> = {
-  STRONG_BUY: 'Strong buy',
-  BUY: 'Buy',
-  HOLD: 'Hold',
-  AVOID: 'Avoid',
+  STRONG_BUY: 'Strong bullish bias',
+  BUY: 'Bullish bias',
+  HOLD: 'Mixed evidence',
+  AVOID: 'Bearish bias',
 };
 
 /** Project the existing swing result onto the shared `TimeframeAnalysis` shape. */
@@ -26,7 +26,7 @@ export function swingToTimeframe(a: SwingAnalysis): TimeframeAnalysis {
   const action: ActionPlan = plan
     ? {
         headline: buying
-          ? `Enter ${inr(plan.entryLow)}–${inr(plan.entryHigh)}, stop ${inr(plan.stopLoss)}.`
+          ? `Illustrative entry zone ${inr(plan.entryLow)}–${inr(plan.entryHigh)}; model stop ${inr(plan.stopLoss)}.`
           : a.verdict === 'HOLD'
             ? 'No fresh swing entry — wait for a breakout or a pullback to support.'
             : 'Stand aside; the short-term setup is weak.',
@@ -35,7 +35,7 @@ export function swingToTimeframe(a: SwingAnalysis): TimeframeAnalysis {
         stopLoss: plan.stopLoss,
         target1: plan.target1,
         target2: plan.target2,
-        note: `A daily close below ${inr(plan.stopLoss)} invalidates the swing. First target ${inr(plan.target1)}, then ${inr(plan.target2)}.`,
+        note: `Model risk level ${inr(plan.stopLoss)}. Illustrative targets ${inr(plan.target1)} and ${inr(plan.target2)} are scenarios, not forecasts. Gaps and execution costs can increase losses beyond the stop.`,
       }
     : {
         headline: 'No trade plan — insufficient volatility data.',
@@ -71,15 +71,15 @@ function shortSummary(a: SwingAnalysis): string {
   const s = a.snapshot;
   const verb =
     a.verdict === 'STRONG_BUY' || a.verdict === 'BUY'
-      ? 'a tradable long setup for a days-to-weeks hold'
+      ? 'a bullish direction in the weighted rules'
       : a.verdict === 'HOLD'
-        ? 'no clean short-term edge either way'
-        : 'a weak short-term chart best left alone';
+        ? 'mixed short-term evidence'
+        : 'a bearish direction in the weighted rules';
   const bits: string[] = [];
   if (s.rsi14 !== null) bits.push(`RSI ${s.rsi14.toFixed(0)}`);
   if (s.adx14 !== null)
     bits.push(s.adx14 > 25 ? `a trending tape (ADX ${s.adx14.toFixed(0)})` : `a choppy tape (ADX ${s.adx14.toFixed(0)})`);
-  return `On the short-term technicals the stock scores ${a.score}/100 — ${verb}${bits.length ? `, with ${bits.join(' and ')}` : ''}. Confidence is ${a.confidenceLabel.toLowerCase()} (${a.confidence}%).`;
+  return `The short-term score is ${a.score}/100: ${verb}${bits.length ? `, with ${bits.join(' and ')}` : ''}.`;
 }
 
 export interface Timeframes {

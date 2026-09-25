@@ -41,8 +41,10 @@ export default function AccountMenu() {
     const onClick = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); ref.current?.querySelector('button')?.focus(); } };
     document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onClick); document.removeEventListener('keydown', onKey); };
   }, []);
 
   // Reserve the space before the session resolves so the header doesn't jump.
@@ -52,6 +54,7 @@ export default function AccountMenu() {
     <div ref={ref} className="relative">
       {user ? (
         <button
+          aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
           className="flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] py-1 pl-1 pr-2.5 transition hover:border-[var(--accent)]"
           aria-label="Account menu"
@@ -70,6 +73,7 @@ export default function AccountMenu() {
         </button>
       ) : (
         <button
+          aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
           className="btn-glass text-sm"
         >
@@ -108,7 +112,7 @@ export default function AccountMenu() {
             </>
           ) : (
             <div className="p-4">
-              <p className="text-sm font-semibold">Sign in to StockScope</p>
+              <p className="text-sm font-semibold">Sign in to NIVRA</p>
               <p className="mt-1 text-xs leading-relaxed text-[var(--muted)]">
                 Sync your watchlist and price alerts across every device you use.
               </p>
@@ -128,12 +132,7 @@ export default function AccountMenu() {
                 <div className="mt-3.5 rounded-lg border border-[var(--warn)]/30 bg-[var(--warn)]/5 px-3 py-2.5 text-[11px] leading-relaxed text-[var(--muted)]">
                   <p className="font-medium text-[var(--foreground)]">Google sign-in isn&apos;t set up yet</p>
                   <p className="mt-1">
-                    Create an OAuth client at{' '}
-                    <span className="text-[var(--accent)]">console.cloud.google.com</span>, then add{' '}
-                    <code className="rounded bg-[var(--surface-2)] px-1">GOOGLE_CLIENT_ID</code> and{' '}
-                    <code className="rounded bg-[var(--surface-2)] px-1">GOOGLE_CLIENT_SECRET</code> to
-                    your <code className="rounded bg-[var(--surface-2)] px-1">.env.local</code>. Full
-                    steps are in the README.
+                    Sign-in is unavailable on this deployment. You can still save a watchlist and alerts for this device.
                   </p>
                 </div>
               )}
@@ -160,8 +159,8 @@ function Avatar({ user, size = 'sm' }: { user: { name: string; picture: string }
   }
   return (
     <span
-      className={`${dim} grid shrink-0 place-items-center rounded-full font-bold text-white`}
-      style={{ background: 'linear-gradient(135deg, var(--accent), var(--accent-2))' }}
+      className={`${dim} grid shrink-0 place-items-center rounded-full font-bold text-[var(--ink)]`}
+      style={{ background: 'var(--accent)' }}
     >
       {initials(user.name)}
     </span>

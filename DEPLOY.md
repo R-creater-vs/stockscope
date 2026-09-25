@@ -1,8 +1,8 @@
-# Putting StockScope on your phone (deploy guide)
+# Putting NIVRA on your phone (deploy guide)
 
-Goal: get StockScope onto your phone as a real app — own icon, full screen, its own notifications.
+Goal: get NIVRA onto your phone as a real app — own icon, full screen, its own notifications.
 
-You don't install from an app store. StockScope is a website, but a modern phone can "Add to Home
+You don't install from an app store. NIVRA is a website, but a modern phone can "Add to Home
 Screen" and from then on it opens like any other app (no browser bar, works from the icon). The UI is
 already built for a phone — full-screen, dark status bar, and it clears the notch and home-bar.
 
@@ -49,8 +49,8 @@ built-in SQLite, which the current build has switched on and older ones don't. C
 ### 3. Get the code onto the phone
 Easiest if you've pushed it to GitHub (see Option B, step 1 — the same repo works for both):
 ```bash
-git clone https://github.com/YOUR-USERNAME/stockscope.git
-cd stockscope
+git clone https://github.com/YOUR-USERNAME/nivra.git
+cd nivra
 ```
 (No GitHub? You can also copy the project folder onto the phone and `cd` into it — but cloning is
 simpler.)
@@ -80,7 +80,7 @@ the server to sleep the moment you switch away.
 3. Open any stock → **Price alerts → Enable notifications → allow → Send test.**
 
 ### 7. Using it day to day
-- To reopen after a reboot: launch **Termux**, then `cd stockscope && npm start`. No rebuild needed.
+- To reopen after a reboot: launch **Termux**, then `cd nivra && npm start`. No rebuild needed.
 - After a code change: `git pull && npm install && npm run build && npm start`.
 - The app icon on your home screen always points at the local server; it just needs Termux running.
 
@@ -127,12 +127,12 @@ Recommended host: **Railway** (simplest). Alternatives that also work: **Fly.io*
 ### 1. Put the code on GitHub
 Railway deploys from a GitHub repo.
 - Create a free account at <https://github.com> if you don't have one.
-- Make a new **private** repository (e.g. `stockscope`).
+- Make a new **private** repository (e.g. `nivra`).
 - Push this project to it. (Ask me — I can set up git and push it for you in one step.)
 
 ### 2. Create the Railway project
 - Sign up at <https://railway.app> (log in with GitHub).
-- **New Project → Deploy from GitHub repo → pick `stockscope`.**
+- **New Project → Deploy from GitHub repo → pick `nivra`.**
 - Railway auto-detects the `Dockerfile` in this project and starts building. No build config needed.
 
 ### 3. Add the persistent disk
@@ -154,7 +154,7 @@ and because `/data` is a saved disk, they survive every redeploy. **No keys to c
 
 ### 5. Get your URL and deploy
 - In **Settings → Networking → Generate Domain.** You'll get something like
-  `https://stockscope-production.up.railway.app`.
+  `https://nivra-production.up.railway.app`.
 - Railway redeploys automatically. Wait for "Success."
 
 ### 6. Use it on your phone

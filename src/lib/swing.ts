@@ -241,10 +241,10 @@ function analyzeWeekly(dailyBars: Bar[]): HigherTimeframe | null {
     aligned: trend === 'neutral' ? null : trend === 'bullish',
     detail:
       trend === 'bullish'
-        ? `The weekly chart is in an uptrend — price above a rising 10-week EMA, itself above the 30-week. Daily longs run with the higher-timeframe tide.`
+        ? `The weekly chart has bullish alignment: price is above the 10-week EMA, which is above the 30-week EMA. This describes agreement across timeframes; it does not establish a trading edge.`
         : trend === 'bearish'
-          ? `The weekly chart is in a downtrend — price below both the 10- and 30-week EMAs. Daily longs here fight the bigger trend and tend to be counter-trend bounces, not the start of moves.`
-          : `The weekly trend is sideways, with the 10- and 30-week EMAs entangled. The higher timeframe offers neither support nor resistance to a daily setup.`,
+          ? `The weekly chart has bearish alignment: price is below the 10-week EMA, which is below the 30-week EMA. A bullish daily reading would conflict with this weekly structure.`
+          : `The weekly price and 10/30-week EMA ordering is mixed. There is no aligned weekly trend under these rules.`,
   };
 }
 
@@ -286,7 +286,7 @@ function buildSignals(s: Snapshot, bars: Bar[]): Signal[] {
       detail:
         gap > 0
           ? `The 20-EMA is ${pct(gap)} above the 50-EMA — short-term momentum leads the intermediate trend.`
-          : `The 20-EMA is ${pct(gap)} below the 50-EMA — short-term momentum lags; rallies are likely to be sold.`,
+          : `The 20-EMA is ${pct(gap)} below the 50-EMA — short-term momentum lags the intermediate trend.`,
     });
   }
 
@@ -304,7 +304,7 @@ function buildSignals(s: Snapshot, bars: Bar[]): Signal[] {
       weight: 12,
       detail: trending
         ? `ADX is ${s.adx14.toFixed(1)} — a genuine trend, and +DI (${s.plusDI.toFixed(1)}) ${bullish ? 'leads' : 'trails'} -DI (${s.minusDI.toFixed(1)}), so it is a ${bullish ? 'up' : 'down'}trend.`
-        : `ADX is only ${s.adx14.toFixed(1)} (below 25) — the stock is chopping sideways. Swing setups have a poor hit rate in this regime.`,
+        : `ADX is ${s.adx14.toFixed(1)} (at or below 25) — this rule does not identify a strong trend. The trend-strength contribution is neutral.`,
     });
   }
 
@@ -315,19 +315,19 @@ function buildSignals(s: Snapshot, bars: Bar[]): Signal[] {
     let detail: string;
     if (v >= 70) {
       score = -0.3;
-      detail = `RSI is ${v.toFixed(1)} — overbought. Momentum is real but the entry is late; a pullback toward the 20-EMA is the better risk.`;
+      detail = `RSI is ${v.toFixed(1)} — above the rule's overbought threshold. The model reduces the score for extended momentum; this does not predict a pullback.`;
     } else if (v >= 55) {
       score = 1;
-      detail = `RSI is ${v.toFixed(1)} — the sweet spot for a swing long: strong momentum with room left before overbought.`;
+      detail = `RSI is ${v.toFixed(1)} — in the model's bullish momentum band, below its overbought threshold. This is a rule classification, not evidence of profitable entry timing.`;
     } else if (v >= 45) {
       score = 0.2;
-      detail = `RSI is ${v.toFixed(1)} — neutral momentum, no edge either way.`;
+      detail = `RSI is ${v.toFixed(1)} — near the middle of its range, with a small positive contribution under these rules.`;
     } else if (v >= 30) {
       score = -0.6;
       detail = `RSI is ${v.toFixed(1)} — momentum is weak and sellers hold control.`;
     } else {
       score = -0.2;
-      detail = `RSI is ${v.toFixed(1)} — deeply oversold. Bearish trend, but stretched enough that a bounce is possible. Only for mean-reversion traders.`;
+      detail = `RSI is ${v.toFixed(1)} — below the oversold threshold. The model applies a small negative contribution; oversold does not imply that a recovery will follow.`;
     }
     signals.push({
       name: 'RSI (14)',
@@ -379,7 +379,7 @@ function buildSignals(s: Snapshot, bars: Bar[]): Signal[] {
         v >= 1.5
           ? `Volume is ${v.toFixed(2)}x the 20-day average on a ${up ? 'up' : 'down'} move — heavy participation ${up ? 'confirms the advance' : 'confirms the decline'}.`
           : v < 0.7
-            ? `Volume is only ${v.toFixed(2)}x the 20-day average — thin participation. Whatever the price is doing, conviction is absent.`
+            ? `Volume is ${v.toFixed(2)}x the 20-day average — below-average participation. The model applies a negative contribution for low volume.`
             : `Volume is ${v.toFixed(2)}x the 20-day average — unremarkable, neither confirming nor contradicting the move.`,
     });
   }
@@ -396,9 +396,9 @@ function buildSignals(s: Snapshot, bars: Bar[]): Signal[] {
       score,
       weight: 8,
       detail: squeeze
-        ? `Bollinger bandwidth is in the tightest ${Math.round(s.bandwidthPercentile * 100)}% of the past year — a volatility squeeze. A large directional move usually follows, but the direction is not yet decided.`
+        ? `Bollinger bandwidth is in the tightest ${Math.round(s.bandwidthPercentile * 100)}% of the past year — a volatility squeeze. The existing rule adds a small positive contribution, although compression alone does not determine the next direction.`
         : b > 1
-          ? `Price has closed above the upper Bollinger band — extended. Statistically, a snap back toward the 20-day mean is likely.`
+          ? `Price has closed above the upper Bollinger band. The model reduces the score for extension; it does not establish the likelihood of a reversal.`
           : b < 0
             ? `Price has closed below the lower Bollinger band — capitulation territory; oversold but falling.`
             : `Price sits at ${Math.round(b * 100)}% of the Bollinger range (0 = lower band, 100 = upper).`,
@@ -420,10 +420,10 @@ function buildSignals(s: Snapshot, bars: Bar[]): Signal[] {
       score,
       weight: 10,
       detail: brokeOut
-        ? `Price has broken above the 20-day high of ${inr(dc.high)} — a fresh breakout, the classic swing entry trigger.`
+        ? `Price is above the previous 20-day high of ${inr(dc.high)} — a breakout under this rule, contributing positively to the score.`
         : brokeDown
-          ? `Price has broken below the 20-day low of ${inr(dc.low)} — a breakdown. Avoid catching this knife.`
-          : `Price is ${Math.round(posInRange * 100)}% of the way up its 20-day range (${inr(dc.low)}–${inr(dc.high)}). Breakout above ${inr(dc.high)} would be the trigger.`,
+          ? `Price is below the previous 20-day low of ${inr(dc.low)} — a breakdown under this rule, contributing negatively to the score.`
+          : `Price is ${Math.round(posInRange * 100)}% of the way up its 20-day range (${inr(dc.low)}–${inr(dc.high)}). A move above ${inr(dc.high)} would meet this rule's breakout condition.`,
     });
   }
 
@@ -456,7 +456,7 @@ function gaugeConfidence(signals: Signal[], s: Snapshot, weekly: HigherTimeframe
 
   let confidence = (agreement * 0.6 + trendClarity * 0.4) * 100;
 
-  // Higher-timeframe agreement is a genuine edge, disagreement a genuine drag.
+  // Higher-timeframe agreement modifies rule confidence, not expected returns.
   // A bounded ±12 nudge keeps it a modifier, not an override of the daily read.
   if (weekly && weekly.aligned !== null) {
     if (weekly.aligned === dailyBullish) confidence += 12;
@@ -547,13 +547,13 @@ function buildRiskFlags(s: Snapshot, levels: Levels, bars: Bar[]): string[] {
   }
   if (s.adx14 !== null && s.adx14 < 20)
     flags.push(
-      `Choppy tape: ADX ${s.adx14.toFixed(1)} means no established trend. Breakouts fail more often than they follow through in this regime.`,
+      `Weak trend reading: ADX ${s.adx14.toFixed(1)} is below this model's trend threshold. A directional setup has less trend clarity.`,
     );
   if (s.rsi14 !== null && s.rsi14 > 75)
-    flags.push(`Overbought: RSI ${s.rsi14.toFixed(1)}. Chasing here means buying from someone taking profit.`);
+    flags.push(`Overbought: RSI ${s.rsi14.toFixed(1)}. Momentum is extended under this rule; the reading does not predict when a reversal will occur.`);
   if (levels.pctFrom52Low !== null && levels.pctFrom52Low < 8)
     flags.push(
-      `Near 52-week low (${levels.pctFrom52Low.toFixed(1)}% above it). Stocks at annual lows keep making lows more often than they bounce.`,
+      `Near 52-week low (${levels.pctFrom52Low.toFixed(1)}% above it). Proximity to the low does not establish support or guarantee a recovery.`,
     );
   if (s.avgVolume20 !== null && s.avgVolume20 < 100_000)
     flags.push(

@@ -13,24 +13,30 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "StockScope — Indian Stock Analysis",
+  title: "NIVRA — Indian Market Intelligence",
   description:
-    "Multi-timeframe analysis for NSE stocks — short, mid and long term — with a watchlist and price alerts.",
-  applicationName: "StockScope",
+    "Understand the setup. See the risk. Decide with clarity. Research NSE and BSE stocks with transparent technical evidence, watchlists and price alerts.",
+  applicationName: "NIVRA",
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/icon.png", apple: "/icon.png" },
+  icons: {
+    icon: [
+      { url: "/brand/favicon.svg", type: "image/svg+xml" },
+      { url: "/icon.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: { url: "/brand/apple-touch-icon.png", sizes: "180x180" },
+  },
   // Makes "Add to Home Screen" open a full-screen, chromeless app on iOS with a
   // dark, translucent status bar (content draws under it; the header pads for it).
   appleWebApp: {
     capable: true,
-    title: "StockScope",
+    title: "NIVRA",
     statusBarStyle: "black-translucent",
   },
   formatDetection: { telephone: false },
 };
 
 export const viewport = {
-  themeColor: "#080b11",
+  themeColor: "#101714",
   colorScheme: "dark" as const,
   width: "device-width",
   initialScale: 1,

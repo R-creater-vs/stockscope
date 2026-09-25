@@ -123,37 +123,38 @@ async function analyseFor(symbol: string): Promise<EvalContext | null> {
 function evaluate(rule: AlertRow, c: EvalContext): { title: string; body: string } | null {
   const inr = (n: number) => `₹${n.toFixed(2)}`;
   const score = rule.timeframe === 'mid' ? c.midScore : c.shortScore;
+  const timeframeLabel = rule.timeframe === 'mid' ? 'Position' : 'Swing';
 
   switch (rule.kind) {
     case 'score_above':
       if (rule.threshold !== null && score >= rule.threshold)
         return {
-          title: `${rule.name}: score ${Math.round(score)}`,
-          body: `${rule.timeframe} score crossed above ${rule.threshold} (now ${Math.round(score)}, ${c.shortVerdict}). ${inr(c.price)}.`,
+          title: `${rule.name}: ${timeframeLabel.toLowerCase()} score ${Math.round(score)}`,
+          body: `${timeframeLabel} score is at or above ${rule.threshold} (latest ${Math.round(score)}). Daily-bar close ${inr(c.price)}; Yahoo data is delayed.`,
         };
       return null;
 
     case 'score_below':
       if (rule.threshold !== null && score <= rule.threshold)
         return {
-          title: `${rule.name}: score ${Math.round(score)}`,
-          body: `${rule.timeframe} score fell below ${rule.threshold} (now ${Math.round(score)}). ${inr(c.price)}.`,
+          title: `${rule.name}: ${timeframeLabel.toLowerCase()} score ${Math.round(score)}`,
+          body: `${timeframeLabel} score is at or below ${rule.threshold} (latest ${Math.round(score)}). Daily-bar close ${inr(c.price)}; Yahoo data is delayed.`,
         };
       return null;
 
     case 'breakout':
       if (c.brokeOut)
         return {
-          title: `${rule.name}: breakout`,
-          body: `Closed above its 20-day high (${inr(c.high20)}). Now ${inr(c.price)}.`,
+          title: `${rule.name}: breakout condition`,
+          body: `Latest daily-bar close ${inr(c.price)} is above the prior 20-day high (${inr(c.high20)}). Yahoo data is delayed.`,
         };
       return null;
 
     case 'hits_stop':
       if (c.brokeStop && c.stop !== null)
         return {
-          title: `${rule.name}: broke stop`,
-          body: `Closed below the swing stop (${inr(c.stop)}). Now ${inr(c.price)}. Reassess the position.`,
+          title: `${rule.name}: below recalculated stop`,
+          body: `Latest daily-bar close ${inr(c.price)} is below the recalculated swing stop (${inr(c.stop)}). This is not a saved entry stop or protective order.`,
         };
       return null;
 
@@ -161,7 +162,7 @@ function evaluate(rule: AlertRow, c: EvalContext): { title: string; body: string
       if (rule.threshold !== null && Math.abs(c.changePct) >= rule.threshold)
         return {
           title: `${rule.name}: ${c.changePct >= 0 ? '+' : ''}${c.changePct.toFixed(1)}%`,
-          body: `Moved ${c.changePct.toFixed(1)}% on the day (≥ ${rule.threshold}% trigger). Now ${inr(c.price)}.`,
+          body: `Daily-bar close changed ${c.changePct.toFixed(1)}% (absolute move ≥ ${rule.threshold}% trigger). Latest ${inr(c.price)}; Yahoo data is delayed.`,
         };
       return null;
 

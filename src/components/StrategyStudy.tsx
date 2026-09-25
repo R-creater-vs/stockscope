@@ -1,7 +1,8 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useState } from 'react';
 import type { AggregateStudy, Engine } from '@/lib/backtest';
+import { ENGINE_VALIDATION } from '@/lib/validation';
 import SignalBuckets from './SignalBuckets';
 
 interface StudyResp {
@@ -14,25 +15,17 @@ interface StudyResp {
 }
 
 const ENGINES: { id: Engine; label: string; blurb: string }[] = [
-  { id: 'short', label: 'Short-term', blurb: 'The swing engine: momentum & breakouts.' },
-  { id: 'mid', label: 'Mid-term', blurb: 'The trend-following engine: 50/200 regime & weekly trend.' },
-  {
-    id: 'long',
-    label: 'Long-term',
-    blurb: 'A price-trend proxy — the real engine is fundamental and cannot be backtested honestly (see below).',
-  },
+  { id: 'short', label: 'Swing', blurb: 'Eight weighted signals · momentum, trend and price structure.' },
+  { id: 'mid', label: 'Position', blurb: '50 / 200-day trend rules and weekly agreement.' },
+  { id: 'long', label: 'Long term', blurb: 'Price-trend proxy only. The fundamental model has not been historically validated.' },
 ];
 
 export default function StrategyStudy() {
   const [engine, setEngine] = useState<Engine>('short');
-  // Cache each engine's result so switching tabs doesn't refetch or re-run.
   const [byEngine, setByEngine] = useState<Partial<Record<Engine, StudyResp>>>({});
   const [state, setState] = useState<'idle' | 'running' | 'error'>('idle');
-
   const data = byEngine[engine] ?? null;
 
-  // On selecting an engine with no result yet, ask only for a cached one — never
-  // trigger the multi-minute run automatically. The user opts in.
   useEffect(() => {
     if (byEngine[engine]) return;
     let cancelled = false;
@@ -42,13 +35,9 @@ export default function StrategyStudy() {
         if (cancelled || res.status === 204 || !res.ok) return;
         const json = (await res.json()) as StudyResp;
         if (!cancelled) setByEngine((m) => ({ ...m, [engine]: json }));
-      } catch {
-        /* leave unloaded; the run button is the fallback */
-      }
+      } catch { /* The recorded study stays available offline. */ }
     })();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [engine, byEngine]);
 
   const run = useCallback(async () => {
@@ -61,167 +50,120 @@ export default function StrategyStudy() {
         setByEngine((m) => ({ ...m, [engine]: json as StudyResp }));
         setState('idle');
       }
-    } catch {
-      setState('error');
-    }
+    } catch { setState('error'); }
   }, [engine]);
 
   return (
     <div className="mt-6 space-y-6">
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-5 py-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider">Strategy check</h2>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          An honest, point-in-time backtest of each engine across the whole NSE universe. The engine
-          is replayed day by day — only ever seeing the past — with entries at the next day&apos;s
-          open and costs deducted. This is where the app grades itself.
-        </p>
-
-        <div className="mt-4 grid grid-cols-3 gap-2">
-          {ENGINES.map((e) => (
-            <button
-              key={e.id}
-              onClick={() => setEngine(e.id)}
-              aria-pressed={engine === e.id}
-              className={`rounded-lg border px-3 py-2 text-sm transition ${
-                engine === e.id
-                  ? 'border-[var(--accent)] bg-[var(--surface-2)] font-medium'
-                  : 'border-[var(--border)] text-[var(--muted)] hover:border-[var(--muted)]'
-              }`}
-            >
-              {e.label}
-            </button>
-          ))}
+      <div className="flex flex-wrap items-end justify-between gap-5">
+        <div>
+          <p className="text-xs uppercase tracking-[0.18em] text-[var(--accent)]">Evidence before conviction</p>
+          <h2 className="mt-2 text-xl font-semibold tracking-tight">The historical record.</h2>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[var(--muted)]">
+            A transparent record of historical tests. Sample size, trading costs and limitations belong beside the result.
+          </p>
         </div>
-        <p className="mt-2 text-xs text-[var(--muted)]">{ENGINES.find((e) => e.id === engine)!.blurb}</p>
-
-        {!data && state !== 'running' && (
-          <button
-            onClick={run}
-            className="mt-4 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-medium text-white transition hover:brightness-110"
-          >
-            Run the {engine} study (~1–3 min, cached after)
-          </button>
-        )}
-        {state === 'running' && (
-          <div className="mt-4 flex items-center gap-3 text-sm text-[var(--muted)]">
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
-            Replaying ~130 stocks over 3 years…
-          </div>
-        )}
-        {state === 'error' && (
-          <p className="mt-4 text-sm text-[var(--bear)]">The study failed to run. Try again.</p>
-        )}
+        <span className="rounded-full border border-[var(--border)] px-3 py-2 text-xs text-[var(--muted)]">Research · no return promise</span>
       </div>
-
+      <div className="grid grid-cols-3 gap-2" role="group" aria-label="Strategy being studied">
+        {ENGINES.map((item) => <button key={item.id} disabled={state === 'running'} onClick={() => { setEngine(item.id); setState('idle'); }} aria-pressed={engine === item.id}
+          className={`min-h-12 rounded-lg border px-3 py-3 text-sm transition disabled:opacity-60 ${engine === item.id ? 'border-[var(--accent)] bg-[var(--surface-2)] font-medium' : 'border-[var(--border)] text-[var(--muted)] hover:border-[var(--muted)]'}`}>
+          {item.label}
+        </button>)}
+      </div>
+      <RecordedEvidence engine={engine} />
+      <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+        <h2 className="text-lg font-semibold">Explore a universe study</h2>
+        <p className="mt-2 text-sm text-[var(--muted)]">{ENGINES.find((item) => item.id === engine)!.blurb}</p>
+        <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">Replay the app&apos;s configured liquid NSE universe using only data available at each decision point. Historical entries use the next session&apos;s open. Cached results may be from an earlier run.</p>
+        {!data && state !== 'running' && <button onClick={run} className="mt-4 min-h-12 rounded-lg bg-[var(--accent)] px-5 py-3 text-sm font-semibold text-[var(--background)] hover:brightness-105">Run historical study</button>}
+        {!data && state === 'idle' && <p className="mt-2 text-xs text-[var(--muted)]">Usually 1–3 minutes on the server. The recorded evidence above is available immediately.</p>}
+        {state === 'running' && <p role="status" className="mt-4 text-sm text-[var(--muted)]">Replaying the selected engine across available histories. You can leave this view while the server works.</p>}
+        {state === 'error' && <p role="alert" className="mt-4 text-sm text-[var(--bear)]">The study could not finish. The recorded evidence remains available. Try the run again.</p>}
+      </section>
       {data && <Results data={data} />}
     </div>
   );
 }
 
-function Results({ data }: { data: StudyResp }) {
-  const s = data.study;
-  const corr = s.signal.correlation;
-  const edge = s.trade.expectancyR;
-
-  // "Works" needs BOTH a positive score→return correlation and a positive
-  // trading expectancy. A contrarian (negative) correlation is flagged specially
-  // — it means the score carries information, just inverted.
-  const works = corr > 0.05 && edge > 0.03;
-  const contrarian = corr < -0.05;
-  const verdictColor = works ? 'var(--bull)' : contrarian ? 'var(--warn)' : 'var(--bear)';
-
-  const headline = works
-    ? 'This engine shows a positive edge.'
-    : contrarian
-      ? 'No edge as-built — but the score is inversely predictive.'
-      : 'No reliable edge found.';
-
-  return (
-    <div className="space-y-5">
-      {data.isProxy && (
-        <div className="rounded-xl border border-[var(--warn)]/40 bg-[var(--warn)]/5 px-5 py-4 text-sm text-[var(--muted)]">
-          <strong className="text-[var(--warn)]">This is a proxy, not the real long-term engine.</strong>{' '}
-          The long-term engine is driven by fundamentals (valuation, growth, quality), and Yahoo only
-          exposes <em>today&apos;s</em> fundamentals — so replaying it over history would use
-          information that did not exist at the time (look-ahead bias). What&apos;s tested here is a
-          price-only trend proxy (200-day trend + momentum), which validates only the trend part of
-          the long thesis. An honest fundamental backtest needs a point-in-time fundamentals dataset.
-        </div>
-      )}
-
-      <div
-        className="rounded-xl border p-5"
-        style={{ borderColor: `${verdictColor}55`, background: `${verdictColor}12` }}
-      >
-        <p className="text-xs uppercase tracking-widest text-[var(--muted)]">Verdict</p>
-        <p className="mt-1 text-xl font-bold" style={{ color: verdictColor }}>
-          {headline}
-        </p>
-        <p className="mt-2 text-sm text-[var(--muted)]">
-          {works
-            ? `A higher score predicted a higher forward return (correlation ${corr.toFixed(2)}), with a positive expectancy of ${edge.toFixed(2)}R per trade across ${s.trade.trades.toLocaleString('en-IN')} trades.`
-            : contrarian
-              ? `Across ${s.symbolsTested} stocks and ${s.signal.samples.toLocaleString('en-IN')} samples, the score's correlation with the ${s.signal.horizon}-day forward return is ${corr.toFixed(3)} — negative. The lowest-scoring stocks went on to outperform the highest-scoring ones. In this universe of liquid large-caps, buying strength has been the wrong trade; the market mean-reverts. The score holds real information — it is simply pointed the wrong way.`
-              : `Across ${s.symbolsTested} stocks and ${s.signal.samples.toLocaleString('en-IN')} samples the correlation is ${corr.toFixed(3)} — essentially none. Expectancy ${edge.toFixed(2)}R per trade (profit factor ${s.trade.profitFactor.toFixed(2)}).`}
-        </p>
-      </div>
-
-      <Stats title="Take every signal" t={s} />
-      {data.studyRegimeFiltered && (
-        <Stats
-          title="Long only when Nifty is in an uptrend"
-          subtitle="The standard 'don't fight the index' filter, tested honestly"
-          t={data.studyRegimeFiltered}
-        />
-      )}
-
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-5 py-4">
-        <p className="mb-3 text-xs font-medium uppercase tracking-wider text-[var(--muted)]">
-          Score vs {s.signal.horizon}-day forward return — the whole universe
-        </p>
-        <SignalBuckets buckets={s.signal.buckets} horizon={s.signal.horizon} />
-      </div>
-
-      <p className="text-xs text-[var(--muted)]">
-        {s.symbolsTested} stocks · net of {s.config.costPct}% round-trip cost · entries next-open ·
-        stop/target from the engine&apos;s own ATR plan · {s.config.holdMaxDays}-day time stop.
-        Computed {new Date(data.generatedAt).toLocaleString('en-IN')}.
+function RecordedEvidence({ engine }: { engine: Engine }) {
+  const evidence = ENGINE_VALIDATION[engine];
+  return <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]" aria-label="Recorded strategy validation">
+    <div className="border-b border-[var(--border)] px-5 py-5 sm:px-6">
+      <p className="text-xs uppercase tracking-[0.14em] text-[var(--muted)]">Recorded study · measured {evidence.measuredOn}</p>
+      <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--warn)]">{evidence.isProxy ? 'Fundamental model remains unvalidated.' : 'No demonstrated edge.'}</h2>
+      <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[var(--muted)]">
+        {engine === 'short' ? 'The existing weighted swing score has not demonstrated a stable trading edge. The relationship between score and subsequent returns changed sign across the two recorded periods. Neither a bullish reading nor an inverted score establishes a profitable strategy.' :
+          evidence.isProxy ? 'Only a historical price-trend proxy was tested. Today’s fundamental inputs cannot be replayed honestly without historical, point-in-time fundamentals. These results do not validate the fundamental score.' :
+            'In the stored study, higher scores did not correspond to higher subsequent returns. A negative historical association does not establish a profitable inverse strategy.'}
       </p>
     </div>
-  );
-}
-
-function Stats({ title, subtitle, t }: { title: string; subtitle?: string; t: AggregateStudy }) {
-  const e = t.trade.expectancyR;
-  return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-5 py-4">
-      <p className="text-sm font-semibold">{title}</p>
-      {subtitle && <p className="text-xs text-[var(--muted)]">{subtitle}</p>}
-      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Cell label="Trades" value={t.trade.trades.toLocaleString('en-IN')} />
-        <Cell label="Win rate" value={`${t.trade.winRate.toFixed(1)}%`} />
-        <Cell
-          label="Expectancy"
-          value={`${e >= 0 ? '+' : ''}${e.toFixed(3)}R`}
-          color={e > 0.03 ? 'var(--bull)' : e < -0.03 ? 'var(--bear)' : 'var(--warn)'}
-        />
-        <Cell
-          label="Profit factor"
-          value={t.trade.profitFactor.toFixed(2)}
-          color={t.trade.profitFactor >= 1 ? 'var(--bull)' : 'var(--bear)'}
-        />
+    <div className="grid grid-cols-2 gap-px bg-[var(--border)] sm:grid-cols-4">
+      <Cell label="Signal observations" value={evidence.samples.toLocaleString('en-IN')} />
+      <Cell label="Stocks tested" value={String(evidence.symbols)} />
+      <Cell label="Net expectancy / trade" value={`${evidence.expectancyR.toFixed(3)}R`} color="var(--bear)" />
+      <Cell label="Profit factor" value={evidence.profitFactor.toFixed(2)} />
+    </div>
+    <div className="space-y-4 px-5 py-5 sm:px-6">
+      <p className="text-sm text-[var(--muted)]">
+        Score / {evidence.horizonDays}-day return correlation: <strong className="tnum text-[var(--foreground)]">{evidence.correlation.toFixed(4)}</strong>.
+        {' '}Lowest score bucket: <span className="tnum">{evidence.lowBucketReturn >= 0 ? '+' : ''}{evidence.lowBucketReturn.toFixed(3)}%</span> average forward return;
+        {' '}highest: <span className="tnum">{evidence.highBucketReturn >= 0 ? '+' : ''}{evidence.highBucketReturn.toFixed(3)}%</span>.
+      </p>
+      {evidence.inSample && evidence.outOfSample && <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <caption className="mb-2 text-left text-xs text-[var(--muted)]">Two recorded, non-overlapping windows. Their labels are preserved from the stored evidence.</caption>
+          <thead className="text-xs text-[var(--muted)]"><tr className="border-b border-[var(--border)]"><th className="py-3 pr-3 font-medium">Window</th><th className="px-2 py-3 text-right font-medium">Correlation</th><th className="py-3 pl-2 text-right font-medium">Net R / trade</th></tr></thead>
+          <tbody>{[evidence.inSample, evidence.outOfSample].map((window, index) => <tr key={window.window} className="border-b border-[var(--border)]">
+            <th className="py-3 pr-3 font-normal">{window.window}<span className="mt-1 block text-xs text-[var(--muted)]">{index === 0 ? 'Primary window' : 'Earlier comparison'}</span></th>
+            <td className="tnum px-2 py-3 text-right">{window.correlation >= 0 ? '+' : ''}{window.correlation.toFixed(4)}</td>
+            <td className="tnum py-3 pl-2 text-right">{window.expectancyR >= 0 ? '+' : ''}{window.expectancyR.toFixed(3)}</td>
+          </tr>)}</tbody>
+        </table>
+      </div>}
+      <div className="border-l-2 border-[var(--accent)] pl-4 text-sm leading-relaxed text-[var(--muted)]">
+        <p><strong className="text-[var(--foreground)]">Read the sample correctly.</strong> Signal observations are daily measurements, not independent trades. Nearby forward-return windows overlap. The stored record does not include a trade count, uncertainty intervals or the full per-stock output.</p>
+        <p className="mt-2">Assumed round-trip trading cost: 0.2%. Entries at the next open; stop, target and time exits follow each engine. R is a multiple of initial trade risk. Signal-bucket returns are price changes; trading expectancy includes the cost assumption.</p>
+        <p className="mt-2">The selected current universe can introduce survivorship bias. These historical comparisons do not establish future performance or validate an inverse strategy. The earlier comparison is not a prospective, untouched test.</p>
       </div>
     </div>
-  );
+  </section>;
+}
+
+function Results({ data }: { data: StudyResp }) {
+  const study = data.study;
+  return <div className="space-y-5">
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+      <p className="text-xs uppercase tracking-[0.14em] text-[var(--muted)]">Available run · {new Date(data.generatedAt).toLocaleString('en-IN')}</p>
+      <h2 className="mt-2 text-xl font-semibold">A historical result, not a validated edge.</h2>
+      <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">Across {study.symbolsTested} stocks and {study.signal.samples.toLocaleString('en-IN')} signal observations, score / {study.signal.horizon}-day forward-return correlation was {study.signal.correlation.toFixed(3)}. Net expectancy was {study.trade.expectancyR.toFixed(3)}R across {study.trade.trades.toLocaleString('en-IN')} simulated trades. A single run cannot establish stable predictive power.</p>
+      {data.isProxy && <p className="mt-3 text-sm text-[var(--warn)]">Price-trend proxy only. This run does not test the fundamental model.</p>}
+    </section>
+    <Stats title="All qualifying historical signals" study={study} />
+    {data.studyRegimeFiltered && <Stats title="With the Nifty uptrend filter" study={data.studyRegimeFiltered} />}
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+      <h3 className="mb-4 text-sm font-semibold">Score buckets & {study.signal.horizon}-day forward return</h3>
+      <SignalBuckets buckets={study.signal.buckets} horizon={study.signal.horizon} />
+    </section>
+    <p className="text-xs leading-relaxed text-[var(--muted)]">{study.symbolsTested} stocks tested · {study.config.costPct}% assumed round-trip cost · entries at next open · engine stop / target · {study.config.holdMaxDays}-day time stop. Each stock is simulated separately; this is not a capital-constrained portfolio. Overlapping signal observations are not independent. The current universe, available histories and simplified fills limit how these results generalise.</p>
+  </div>;
+}
+
+function Stats({ title, study }: { title: string; study: AggregateStudy }) {
+  return <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+    <h3 className="px-5 py-4 text-sm font-semibold">{title}</h3>
+    <div className="grid grid-cols-2 gap-px bg-[var(--border)] sm:grid-cols-4">
+      <Cell label="Simulated trades" value={study.trade.trades.toLocaleString('en-IN')} />
+      <Cell label="Historical win rate" value={`${study.trade.winRate.toFixed(1)}%`} />
+      <Cell label="Net expectancy" value={`${study.trade.expectancyR >= 0 ? '+' : ''}${study.trade.expectancyR.toFixed(3)}R`} />
+      <Cell label="Profit factor" value={Number.isFinite(study.trade.profitFactor) ? study.trade.profitFactor.toFixed(2) : '—'} />
+    </div>
+  </section>;
 }
 
 function Cell({ label, value, color }: { label: string; value: string; color?: string }) {
-  return (
-    <div className="rounded-lg bg-[var(--surface-2)] px-3 py-2">
-      <p className="text-[10px] uppercase tracking-widest text-[var(--muted)]">{label}</p>
-      <p className="tnum mt-0.5 text-base font-semibold" style={color ? { color } : undefined}>
-        {value}
-      </p>
-    </div>
-  );
+  return <div className="bg-[var(--surface)] px-4 py-4 sm:px-5">
+    <p className="text-xs text-[var(--muted)]">{label}</p>
+    <p className="tnum mt-1 text-xl font-semibold tracking-tight" style={color ? { color } : undefined}>{value}</p>
+  </div>;
 }

@@ -33,6 +33,7 @@ interface Props {
 
 export default function PriceChart({ bars, levels, plan }: Props) {
   const [range, setRange] = useState<number>(130);
+  const [tableOpen, setTableOpen] = useState(false);
 
   // EMAs are computed on the full series, then sliced — computing them on the
   // visible window alone would give different (wrong) values as you zoom.
@@ -52,27 +53,29 @@ export default function PriceChart({ bars, levels, plan }: Props) {
   }, [bars, range]);
 
   const closes = data.map((d) => d.close);
-  const lo = Math.min(...closes);
-  const hi = Math.max(...closes);
+  const lo = closes.length ? Math.min(...closes) : 0;
+  const hi = closes.length ? Math.max(...closes) : 0;
   const pad = (hi - lo) * 0.12 || 1;
 
   return (
-    <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+    <section className="min-w-0 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]" aria-label="Daily price history">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-3.5">
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wider">Price action</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Price action</h2>
           <p className="mt-0.5 text-xs text-[var(--muted)]">
-            Close with 20 &amp; 50-day EMAs. Dashed lines mark the trade plan.
+            Daily close with 20 &amp; 50-day EMAs. Plan levels are illustrative.
           </p>
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1" role="group" aria-label="Chart range">
           {RANGES.map((r) => (
             <button
               key={r.label}
               onClick={() => setRange(r.days)}
-              className={`rounded-md px-2.5 py-1 text-xs transition ${
+              aria-pressed={range === r.days}
+              aria-label={`${r.label} price history`}
+              className={`min-h-11 min-w-11 rounded-md px-3 py-2 text-xs transition ${
                 range === r.days
-                  ? 'bg-[var(--accent)] text-white'
+                  ? 'bg-[var(--accent)] font-semibold text-[var(--background)]'
                   : 'text-[var(--muted)] hover:bg-[var(--surface-2)]'
               }`}
             >
@@ -82,20 +85,15 @@ export default function PriceChart({ bars, levels, plan }: Props) {
         </div>
       </header>
 
-      <div className="px-2 py-4">
+      <div className="px-1 py-4 sm:px-2">
+        {data.length === 0 ? <p className="grid h-80 place-items-center px-5 text-sm text-[var(--muted)]">No daily price history is available.</p> : <>
         <ResponsiveContainer width="100%" height={320}>
-          <ComposedChart data={data} margin={{ top: 8, right: 56, bottom: 0, left: 8 }}>
-            <defs>
-              <linearGradient id="priceFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--accent)" stopOpacity={0.28} />
-                <stop offset="100%" stopColor="var(--accent)" stopOpacity={0} />
-              </linearGradient>
-            </defs>
+          <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 4 }} accessibilityLayer>
 
             <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="date"
-              tick={{ fill: 'var(--muted)', fontSize: 11 }}
+              tick={{ fill: 'var(--muted)', fontSize: 12 }}
               axisLine={{ stroke: 'var(--border)' }}
               tickLine={false}
               minTickGap={48}
@@ -107,7 +105,7 @@ export default function PriceChart({ bars, levels, plan }: Props) {
               yAxisId="price"
               orientation="right"
               domain={[lo - pad, hi + pad]}
-              tick={{ fill: 'var(--muted)', fontSize: 11 }}
+              tick={{ fill: 'var(--muted)', fontSize: 12 }}
               axisLine={false}
               tickLine={false}
               width={56}
@@ -124,7 +122,8 @@ export default function PriceChart({ bars, levels, plan }: Props) {
               type="monotone"
               dataKey="close"
               stroke="none"
-              fill="url(#priceFill)"
+              fill="var(--accent)"
+              fillOpacity={0.06}
               isAnimationActive={false}
             />
             <Line
@@ -140,8 +139,9 @@ export default function PriceChart({ bars, levels, plan }: Props) {
               yAxisId="price"
               type="monotone"
               dataKey="ema20"
-              stroke="#eab308"
-              strokeWidth={1.2}
+              stroke="var(--warn)"
+              strokeDasharray="7 4"
+              strokeWidth={1.5}
               dot={false}
               connectNulls
               isAnimationActive={false}
@@ -150,8 +150,9 @@ export default function PriceChart({ bars, levels, plan }: Props) {
               yAxisId="price"
               type="monotone"
               dataKey="ema50"
-              stroke="#a855f7"
-              strokeWidth={1.2}
+              stroke="var(--muted)"
+              strokeDasharray="2 4"
+              strokeWidth={1.5}
               dot={false}
               connectNulls
               isAnimationActive={false}
@@ -164,14 +165,14 @@ export default function PriceChart({ bars, levels, plan }: Props) {
                   y={plan.stopLoss}
                   stroke="var(--bear)"
                   strokeDasharray="5 4"
-                  label={{ value: 'Stop', fill: 'var(--bear)', fontSize: 10, position: 'right' }}
+                  label={{ value: 'Stop', fill: 'var(--bear)', fontSize: 12, position: 'insideTopRight' }}
                 />
                 <ReferenceLine
                   yAxisId="price"
                   y={plan.target1}
                   stroke="var(--bull)"
                   strokeDasharray="5 4"
-                  label={{ value: 'T1', fill: 'var(--bull)', fontSize: 10, position: 'right' }}
+                  label={{ value: 'T1', fill: 'var(--bull)', fontSize: 12, position: 'insideTopRight' }}
                 />
               </>
             )}
@@ -198,19 +199,31 @@ export default function PriceChart({ bars, levels, plan }: Props) {
 
         <div className="mt-2 flex flex-wrap gap-4 px-4 text-xs text-[var(--muted)]">
           <Legend color="var(--accent)" label="Close" />
-          <Legend color="#eab308" label="EMA 20" />
-          <Legend color="#a855f7" label="EMA 50" />
+          <Legend color="var(--warn)" label="EMA 20" dash="7 4" />
+          <Legend color="var(--muted)" label="EMA 50" dash="2 4" />
           <Legend color="var(--surface-2)" label="Volume" />
         </div>
+        <p className="mt-3 px-4 text-xs leading-relaxed text-[var(--muted)]">{data.length} daily observations · {data[0]?.date} to {data.at(-1)?.date}. Closing prices ranged from {inr(lo)} to {inr(hi)}. Latest close {inr(data.at(-1)?.close ?? 0)}. Yahoo data may be delayed; the last daily bar may represent an unfinished session.</p>
+        </>}
       </div>
+      {data.length > 0 && <details className="border-t border-[var(--border)]" onToggle={(event) => setTableOpen(event.currentTarget.open)}>
+        <summary className="min-h-12 cursor-pointer px-5 py-3 text-sm text-[var(--muted)]">View chart data as a table</summary>
+        {tableOpen && <div className="max-h-80 overflow-auto px-5 pb-4" tabIndex={0} role="region" aria-label="Daily price observations">
+          <table className="w-full min-w-[480px] text-right text-sm">
+            <caption className="py-2 text-left text-xs text-[var(--muted)]">Daily close and volume from the provider; EMAs computed on the full history before this range is selected.</caption>
+            <thead><tr className="border-b border-[var(--border)] text-xs text-[var(--muted)]"><th scope="col" className="py-3 text-left">Date</th><th scope="col" className="px-2 py-3">Close</th><th scope="col" className="px-2 py-3">EMA 20</th><th scope="col" className="px-2 py-3">EMA 50</th><th scope="col" className="py-3">Volume</th></tr></thead>
+            <tbody>{data.map((row) => <tr key={row.date} className="border-b border-[var(--border)]"><th scope="row" className="tnum py-3 text-left font-normal">{row.date}</th><td className="tnum px-2 py-3">{inr(row.close)}</td><td className="tnum px-2 py-3">{inr(row.ema20)}</td><td className="tnum px-2 py-3">{inr(row.ema50)}</td><td className="tnum py-3">{row.volume.toLocaleString('en-IN')}</td></tr>)}</tbody>
+          </table>
+        </div>}
+      </details>}
     </section>
   );
 }
 
-function Legend({ color, label }: { color: string; label: string }) {
+function Legend({ color, label, dash }: { color: string; label: string; dash?: string }) {
   return (
     <span className="flex items-center gap-1.5">
-      <span className="h-0.5 w-4 rounded" style={{ background: color }} />
+      <svg width="20" height="8" aria-hidden="true"><path d="M0 4H20" stroke={color} strokeWidth="2" strokeDasharray={dash} /></svg>
       {label}
     </span>
   );
@@ -244,8 +257,8 @@ function ChartTooltip({
         })}
       </p>
       <Row label="Close" value={inr(d.close)} />
-      {d.ema20 != null && <Row label="EMA 20" value={inr(d.ema20)} color="#eab308" />}
-      {d.ema50 != null && <Row label="EMA 50" value={inr(d.ema50)} color="#a855f7" />}
+      {d.ema20 != null && <Row label="EMA 20" value={inr(d.ema20)} color="var(--warn)" />}
+      {d.ema50 != null && <Row label="EMA 50" value={inr(d.ema50)} color="var(--muted)" />}
       <Row label="Volume" value={compactVolume(d.volume)} />
     </div>
   );

@@ -53,6 +53,7 @@ function PriceFilter({
         return (
           <button
             key={p.label}
+            aria-pressed={activePreset}
             onClick={() => {
               setCustomOpen(false);
               onChange(p);
@@ -69,6 +70,7 @@ function PriceFilter({
       })}
 
       <button
+        aria-expanded={customOpen}
         onClick={() => setCustomOpen((v) => !v)}
         className={`rounded-md px-2.5 py-1 text-xs transition ${
           isCustom
@@ -83,6 +85,7 @@ function PriceFilter({
         <div className="flex items-center gap-1.5">
           <input
             type="number"
+            aria-label="Minimum share price in rupees"
             value={min}
             placeholder="min"
             onChange={(e) => setMin(e.target.value)}
@@ -91,6 +94,7 @@ function PriceFilter({
           <span className="text-xs text-[var(--muted)]">–</span>
           <input
             type="number"
+            aria-label="Maximum share price in rupees"
             value={max}
             placeholder="max"
             onChange={(e) => setMax(e.target.value)}

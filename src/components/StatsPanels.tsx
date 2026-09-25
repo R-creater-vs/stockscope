@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import type { Levels, Snapshot } from '@/lib/swing';
@@ -13,6 +13,7 @@ interface LiveQuote {
   change: number;
   changePercent: number;
   at: string;
+  marketState?: string | null;
 }
 
 /**
@@ -21,8 +22,9 @@ interface LiveQuote {
  * updates on its own. Polling pauses when the tab is hidden. The header is keyed
  * by symbol at the call site, so this hook's instance never outlives one stock.
  */
-function useLiveQuote(symbol: string, initial: { price: number; change: number; changePercent: number }) {
+function useLiveQuote(symbol: string, initial: { price: number; change: number; changePercent: number; marketState?: string | null }) {
   const [quote, setQuote] = useState<LiveQuote>({ ...initial, at: '' });
+  const [stale, setStale] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -31,11 +33,11 @@ function useLiveQuote(symbol: string, initial: { price: number; change: number; 
       if (document.visibilityState !== 'visible') return;
       try {
         const res = await fetch(`/api/quote?symbol=${encodeURIComponent(symbol)}`);
-        if (!res.ok) return;
+        if (!res.ok) { if (!cancelled) setStale(true); return; }
         const q = (await res.json()) as LiveQuote;
-        if (!cancelled && typeof q.price === 'number') setQuote(q);
+        if (!cancelled && typeof q.price === 'number') { setQuote(q); setStale(false); }
       } catch {
-        /* transient — keep the last good value */
+        if (!cancelled) setStale(true);
       }
     };
 
@@ -47,33 +49,33 @@ function useLiveQuote(symbol: string, initial: { price: number; change: number; 
     };
   }, [symbol]);
 
-  return quote;
+  return { quote, stale };
 }
 
 export function StockHeader({ company }: { company: CompanyData }) {
   const { profile } = company;
-  const quote = useLiveQuote(profile.symbol, {
+  const { quote, stale } = useLiveQuote(profile.symbol, {
     price: company.quote.price,
     change: company.quote.change,
     changePercent: company.quote.changePercent,
+    marketState: company.quote.marketState,
   });
   const up = quote.changePercent >= 0;
   const color = up ? 'var(--bull)' : 'var(--bear)';
 
   return (
-    <div className="flex flex-wrap items-end justify-between gap-6">
-      <div>
+    <div className="flex flex-wrap items-end justify-between gap-5">
+      <div className="min-w-0">
+        <p className="mb-2 text-xs uppercase tracking-[0.18em] text-[var(--muted)]">Stock intelligence</p>
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-bold tracking-tight">{profile.name}</h1>
+          <h1 tabIndex={-1} className="text-2xl font-semibold tracking-tight sm:text-3xl">{profile.name}</h1>
           <StarButton symbol={profile.symbol} name={profile.name} />
           <span className="rounded bg-[var(--surface-2)] px-2 py-0.5 tnum text-xs text-[var(--muted)]">
             {profile.symbol}
           </span>
-          {company.quote.marketState && company.quote.marketState !== 'REGULAR' && (
-            <span className="rounded bg-[var(--surface-2)] px-2 py-0.5 text-[10px] uppercase tracking-wider text-[var(--muted)]">
-              Market {company.quote.marketState.toLowerCase()}
-            </span>
-          )}
+          <span className="rounded bg-[var(--surface-2)] px-2 py-1 text-xs text-[var(--muted)]">
+            {quote.marketState === 'REGULAR' ? 'Market open' : quote.marketState === 'CLOSED' || quote.marketState === 'POSTPOST' ? 'Market closed' : quote.marketState === 'PRE' || quote.marketState === 'PREPRE' ? 'Pre-market' : quote.marketState === 'POST' ? 'Post-market' : quote.marketState ? `Provider status: ${quote.marketState}` : 'Market status unavailable'}
+          </span>
         </div>
         <p className="mt-1 text-sm text-[var(--muted)]">
           {[profile.exchange, profile.sector, profile.industry].filter(Boolean).join(' · ')}
@@ -81,15 +83,17 @@ export function StockHeader({ company }: { company: CompanyData }) {
         <EarningsBadge company={company} />
       </div>
 
-      <div className="text-right">
-        <p className="tnum text-3xl font-bold transition-colors">{inr(quote.price)}</p>
+      <div className="w-full border-t border-[var(--border)] pt-4 text-left sm:w-auto sm:border-0 sm:pt-0 sm:text-right">
+        <p className="tnum text-4xl font-semibold tracking-tight">{inr(quote.price)}</p>
         <p className="tnum mt-0.5 text-sm font-medium" style={{ color }}>
-          {up ? '+' : ''}
+          {up ? '▲ +' : '▼ '}
           {num(quote.change)} ({pct(quote.changePercent, 2, true)})
         </p>
-        <p className="mt-0.5 text-[10px] uppercase tracking-wider text-[var(--muted)]">
-          Delayed{quote.at ? ` · ${new Date(quote.at).toLocaleTimeString('en-IN')}` : ''}
+        <p className="mt-2 text-xs text-[var(--muted)]">
+          Yahoo · delayed quote · checks every 60s
         </p>
+        <p className="mt-1 text-xs text-[var(--muted)]">{quote.at ? `Retrieved ${new Date(quote.at).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })} IST` : 'Initial report quote'} · exchange timestamp unavailable</p>
+        {stale && <p role="status" className="mt-2 text-xs text-[var(--warn)]">Refresh unavailable. Showing the last received quote.</p>}
       </div>
     </div>
   );
@@ -120,7 +124,7 @@ function EarningsBadge({ company }: { company: CompanyData }) {
     >
       <span aria-hidden>📅</span>
       Results {label} · {nice}
-      {isEstimate && <span className="opacity-70">(est.)</span>}
+      {isEstimate && <span>(estimated)</span>}
     </span>
   );
 }
@@ -205,11 +209,11 @@ export function KeyMetrics({
     <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--border)] sm:grid-cols-4">
       {items.map((it) => (
         <div key={it.label} className="bg-[var(--surface)] px-4 py-3">
-          <p className="text-[10px] uppercase tracking-widest text-[var(--muted)]">{it.label}</p>
+          <p className="text-xs uppercase tracking-widest text-[var(--muted)]">{it.label}</p>
           <p className="tnum mt-1 text-lg font-semibold" style={it.color ? { color: it.color } : undefined}>
             {it.value}
           </p>
-          {it.hint && <p className="text-[11px] text-[var(--muted)]">{it.hint}</p>}
+          {it.hint && <p className="text-xs text-[var(--muted)]">{it.hint}</p>}
         </div>
       ))}
     </div>
@@ -286,7 +290,7 @@ function LevelColumn({
 }) {
   return (
     <div className="bg-[var(--surface)] px-5 py-4">
-      <p className="text-[10px] uppercase tracking-widest text-[var(--muted)]">{title}</p>
+      <p className="text-xs uppercase tracking-widest text-[var(--muted)]">{title}</p>
       {levels.length === 0 ? (
         <p className="mt-2 text-sm text-[var(--muted)]">None identified in range.</p>
       ) : (
@@ -346,7 +350,7 @@ export function FundamentalsPanel({ f, bare = false }: { f: Fundamentals; bare?:
       <div className="grid grid-cols-2 gap-px bg-[var(--border)] sm:grid-cols-4">
         {rows.map((r) => (
           <div key={r.label} className="bg-[var(--surface)] px-4 py-3">
-            <p className="text-[10px] uppercase tracking-widest text-[var(--muted)]">{r.label}</p>
+            <p className="text-xs uppercase tracking-widest text-[var(--muted)]">{r.label}</p>
             <p className="tnum mt-0.5 text-sm font-medium">{r.value}</p>
           </div>
         ))}
@@ -465,13 +469,12 @@ export function AnalystPanel({
 /* ------------------------------------------------------------------- risks */
 
 export function RiskPanel({ flags }: { flags: string[] }) {
-  if (flags.length === 0) return null;
-
   return (
     <section className="rounded-xl border border-[var(--warn)]/40 bg-[var(--warn)]/5 px-5 py-4">
       <h2 className="text-sm font-semibold uppercase tracking-wider text-[var(--warn)]">
         Risk flags
       </h2>
+      {flags.length === 0 && <p className="mt-3 text-sm leading-relaxed text-[var(--muted)]">No model risk flags triggered. This does not establish safety: price gaps, liquidity and losses remain possible.</p>}
       <ul className="mt-3 space-y-2">
         {flags.map((f) => (
           <li key={f} className="flex gap-2 text-sm text-[var(--muted)]">

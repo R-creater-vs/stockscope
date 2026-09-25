@@ -4,7 +4,7 @@ import type { Timeframes } from './multiTimeframe';
 import type { CompanyData, SymbolMatch } from './yahoo';
 
 export interface AnalyzeResponse {
-  match: SymbolMatch;
+  match: SymbolMatch & { switchedFrom?: string };
   company: CompanyData;
   /** The short-term swing analysis in full — chart levels & snapshot come from here. */
   analysis: SwingAnalysis;

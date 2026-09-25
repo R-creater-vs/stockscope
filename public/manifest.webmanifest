@@ -1,16 +1,16 @@
 {
-  "name": "StockScope — Indian Stock Analysis",
-  "short_name": "StockScope",
-  "description": "Indian stock analysis across short, mid and long timeframes with price alerts.",
+  "name": "NIVRA — Market Intelligence",
+  "short_name": "NIVRA",
+  "description": "Understand the setup. See the risk. Decide with clarity. Indian equity research with transparent evidence and price alerts.",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait",
-  "background_color": "#080b11",
-  "theme_color": "#080b11",
+  "background_color": "#101714",
+  "theme_color": "#101714",
   "categories": ["finance", "productivity"],
   "icons": [
+    { "src": "/brand/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    { "src": "/brand/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

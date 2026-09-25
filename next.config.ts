@@ -1,8 +1,16 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Explicitly opt into Next 16's default bundler; keep the existing Webpack
+  // configuration for platforms that run `next build --webpack`.
+  turbopack: {},
   // Emit a self-contained server bundle for a small Docker image / VPS deploy.
   output: "standalone",
+  // Runtime identities, SQLite data and VAPID keys belong on the deployment's
+  // persistent volume. Never copy local data or env files into a server bundle.
+  outputFileTracingExcludes: {
+    "/*": ["./.data/**/*", "./.env*"],
+  },
   // web-push (via https-proxy-agent) requires Node's net/http/https at runtime.
   // Turbopack externalises it automatically, but the Webpack builder — which we
   // must use on platforms Turbopack can't target, e.g. Android/arm64 in Termux —

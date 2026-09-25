@@ -3,7 +3,6 @@
 import { useMemo, useState } from 'react';
 import type { TradePlan, Verdict } from '@/lib/swing';
 import type { Timeframe } from '@/lib/timeframes';
-import { validationNote } from '@/lib/validation';
 import { inr } from '@/lib/format';
 
 /**
@@ -38,19 +37,18 @@ export default function MoneyCheck({
   );
 
   const toneStyle: Record<Tone, { border: string; bg: string; label: string; color: string }> = {
-    good: { border: 'var(--bull)', bg: 'rgba(38,208,124,0.08)', label: 'Reasonably sized', color: 'var(--bull)' },
-    caution: { border: 'var(--warn)', bg: 'rgba(246,167,35,0.08)', label: 'Okay — with caveats', color: 'var(--warn)' },
-    bad: { border: 'var(--bear)', bg: 'rgba(246,70,93,0.08)', label: 'Rethink this', color: 'var(--bear)' },
+    good: { border: 'var(--border)', bg: 'var(--surface-2)', label: 'Within the model’s size thresholds', color: 'var(--foreground)' },
+    caution: { border: 'var(--border)', bg: 'var(--surface-2)', label: 'Review the model cautions', color: 'var(--warn)' },
+    bad: { border: 'var(--border)', bg: 'var(--surface-2)', label: 'Risk flags to review', color: 'var(--bear)' },
   };
   const t = toneStyle[assessment.tone];
 
   return (
     <section className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
       <header className="border-b border-[var(--border)] px-5 py-3.5">
-        <h2 className="text-sm font-semibold uppercase tracking-wider">Should I put money in?</h2>
+        <h2 className="text-lg font-semibold tracking-tight">Position scenario</h2>
         <p className="mt-0.5 text-xs text-[var(--muted)]">
-          Enter what you&apos;re thinking of investing here — this checks the <em>risk and size</em>,
-          not whether the price will rise.
+          Model an amount, its concentration and the loss at the planned stop. This is a sizing exercise, not a return forecast.
         </p>
       </header>
 
@@ -61,9 +59,10 @@ export default function MoneyCheck({
             type="number"
             value={amount}
             min={0}
+            max={1_000_000_000_000}
             step={5000}
-            onChange={(e) => setAmount(Math.max(0, Number(e.target.value)))}
-            className="tnum w-40 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-sm outline-none focus:border-[var(--accent)]"
+            onChange={(e) => { const value = Number(e.target.value); setAmount(Number.isFinite(value) ? Math.min(1_000_000_000_000, Math.max(0, value)) : 0); }}
+            className="tnum min-h-11 w-40 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-base outline-none focus:border-[var(--accent)]"
           />
         </label>
         <label className="flex flex-col gap-1">
@@ -72,9 +71,10 @@ export default function MoneyCheck({
             type="number"
             value={portfolio}
             min={0}
+            max={1_000_000_000_000}
             step={50000}
-            onChange={(e) => setPortfolio(Math.max(0, Number(e.target.value)))}
-            className="tnum w-44 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-1.5 text-sm outline-none focus:border-[var(--accent)]"
+            onChange={(e) => { const value = Number(e.target.value); setPortfolio(Number.isFinite(value) ? Math.min(1_000_000_000_000, Math.max(0, value)) : 0); }}
+            className="tnum min-h-11 w-44 rounded-md border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-base outline-none focus:border-[var(--accent)]"
           />
         </label>
       </div>
@@ -83,15 +83,15 @@ export default function MoneyCheck({
         <>
           <div className="grid grid-cols-2 gap-px bg-[var(--border)] sm:grid-cols-4">
             <Cell label="Shares" value={String(assessment.shares)} />
-            <Cell label="Actually invested" value={inr(assessment.invested, 0)} />
+            <Cell label="Scenario amount" value={inr(assessment.invested, 0)} />
             <Cell
-              label="Loss if stopped out"
+              label="Planned loss at stop"
               value={assessment.lossAtStop !== null ? `${inr(assessment.lossAtStop, 0)}` : '—'}
               sub={assessment.stopPct !== null ? `${assessment.stopPct.toFixed(1)}% drop` : 'no stop set'}
               color="var(--bear)"
             />
             <Cell
-              label="Gain at target 1"
+              label="Scenario gain at T1"
               value={assessment.gainAtT1 !== null ? inr(assessment.gainAtT1, 0) : '—'}
               color="var(--bull)"
             />
@@ -108,14 +108,14 @@ export default function MoneyCheck({
               </span>
               {assessment.accountRisk !== null && (
                 <span className="text-[var(--muted)]">
-                  At-risk if stopped{' '}
+                  Planned stop loss{' '}
                   <span
                     className="tnum font-semibold"
                     style={{ color: assessment.accountRisk > 2 ? 'var(--bear)' : 'var(--bull)' }}
                   >
                     {assessment.accountRisk.toFixed(1)}%
                   </span>{' '}
-                  of everything
+                  of entered capital
                 </span>
               )}
             </div>
@@ -127,7 +127,7 @@ export default function MoneyCheck({
               style={{ borderColor: t.border, background: t.bg }}
             >
               <p className="text-sm font-bold uppercase tracking-wider" style={{ color: t.color }}>
-                {t.label}
+                {portfolio <= 0 ? 'Portfolio amount missing' : assessment.shares === 0 ? 'Amount below one share' : t.label}
               </p>
               <ul className="mt-2 space-y-1.5">
                 {assessment.reasons.map((r, i) => (
@@ -141,11 +141,11 @@ export default function MoneyCheck({
               </ul>
             </div>
 
-            <p className="mt-3 text-[11px] leading-relaxed text-[var(--muted)]">
-              This is a sizing and risk check, not a prediction. No one can tell you a stock will go
-              up — the honest job here is making sure a wrong call is small enough to survive. The
-              engine&apos;s own track record on this timeframe is{' '}
-              <span className="text-[var(--foreground)]">{validationNote(timeframe).status.replace('-', ' ')}</span>.
+            {portfolio > 0 && assessment.invested > portfolio && <p role="status" className="mt-3 text-sm text-[var(--warn)]">The scenario amount exceeds the total capital entered. This calculation does not provide funding or broker execution.</p>}
+            {portfolio <= 0 && <p className="mt-3 text-sm text-[var(--muted)]">Enter total capital to calculate concentration and account risk.</p>}
+            <p className="mt-3 text-xs leading-relaxed text-[var(--muted)]">
+              Loss uses the model&apos;s risk per share; execution can differ from the report quote. Fees, slippage and price gaps can increase actual losses beyond this scenario.
+              {' '}{timeframe === 'long' ? 'The fundamental model has not been historically validated.' : 'The weighted technical rules have no demonstrated stable trading edge.'}
             </p>
           </div>
         </>
@@ -203,21 +203,21 @@ function assess({
 
   // 1) What does the engine even think of the stock?
   if (verdict === 'AVOID') {
-    reasons.push({ tone: 'bad', text: 'The engine rates this AVOID — it is not a buy candidate right now, at any size.' });
+    reasons.push({ tone: 'bad', text: 'The weighted rules have a bearish bias. Position size does not change the direction of that evidence.' });
     bad = true;
   } else if (verdict === 'HOLD') {
-    reasons.push({ tone: 'caution', text: 'The engine rates this HOLD — no clean entry today, so there is no defined risk to size against.' });
+    reasons.push({ tone: 'caution', text: 'The weighted rules show mixed evidence. Any displayed stop and target remain illustrative.' });
     caution = true;
   } else {
-    reasons.push({ tone: 'good', text: `The engine rates this ${verdict.replace('_', ' ')} — a valid setup, if the plan's stop is respected.` });
+    reasons.push({ tone: 'caution', text: 'The weighted rules have a bullish bias. This does not establish a profitable setup or a probability of profit.' });
   }
 
   // 2) Reward vs risk of the trade itself.
   if (rr !== null) {
-    if (rr >= 2) reasons.push({ tone: 'good', text: `Reward:risk is healthy at ${rr.toFixed(1)}:1 — the target is worth the stop.` });
-    else if (rr >= 1.3) reasons.push({ tone: 'caution', text: `Reward:risk is only ${rr.toFixed(1)}:1 — acceptable, not generous.` });
+    if (rr >= 2) reasons.push({ tone: 'good', text: `Model target reward is ${rr.toFixed(1)} times the planned risk. This ratio does not measure the chance of reaching the target.` });
+    else if (rr >= 1.3) reasons.push({ tone: 'caution', text: `Model target reward is ${rr.toFixed(1)} times the planned risk, before costs. Target probability is unknown.` });
     else {
-      reasons.push({ tone: 'bad', text: `Reward:risk is thin at ${rr.toFixed(1)}:1 — you'd risk nearly as much as you stand to make.` });
+      reasons.push({ tone: 'bad', text: `Model target reward is ${rr.toFixed(1)} times the planned risk, below the model's preferred ratio. Costs reduce this further.` });
       caution = true;
     }
   }
@@ -225,29 +225,29 @@ function assess({
   // 3) Concentration — the single biggest retail mistake.
   if (portfolio > 0) {
     if (concentration > 35) {
-      reasons.push({ tone: 'bad', text: `That's ${concentration.toFixed(0)}% of your money in one stock — dangerously concentrated. A single bad gap could hurt badly.` });
+      reasons.push({ tone: 'bad', text: `This scenario puts ${concentration.toFixed(0)}% of the entered capital in one stock, above the model's concentration threshold. A gap can materially affect the account.` });
       bad = true;
     } else if (concentration > 20) {
-      reasons.push({ tone: 'caution', text: `That's ${concentration.toFixed(0)}% of your money in one stock — a lot. Spreading across 5–8 names is safer.` });
+      reasons.push({ tone: 'caution', text: `This scenario puts ${concentration.toFixed(0)}% of the entered capital in one stock. Review concentration alongside other correlated holdings.` });
       caution = true;
     } else {
-      reasons.push({ tone: 'good', text: `At ${concentration.toFixed(0)}% of your money, this position is diversifiable — no single stock can sink you.` });
+      reasons.push({ tone: 'good', text: `This scenario uses ${concentration.toFixed(0)}% of the entered capital, within the model's concentration threshold. Other holdings and shared risks are not assessed.` });
     }
   }
 
   // 4) Account risk — the professional 1–2% rule.
   if (accountRisk !== null) {
     if (accountRisk > 3) {
-      reasons.push({ tone: 'bad', text: `If stopped out you'd lose ${accountRisk.toFixed(1)}% of everything on one trade. Professionals cap this near 1–2%.` });
+      reasons.push({ tone: 'bad', text: `Planned stop loss is ${accountRisk.toFixed(1)}% of entered capital, above the model's risk threshold. Actual loss can exceed this.` });
       bad = true;
     } else if (accountRisk > 2) {
-      reasons.push({ tone: 'caution', text: `Stopped out, you'd lose ${accountRisk.toFixed(1)}% of your total money — a bit above the 1–2% per-trade guideline.` });
+      reasons.push({ tone: 'caution', text: `Planned stop loss is ${accountRisk.toFixed(1)}% of entered capital, above the model's lower risk band. Actual loss can exceed this.` });
       caution = true;
     } else {
-      reasons.push({ tone: 'good', text: `Stopped out, you'd lose ${accountRisk.toFixed(1)}% of your total — within the sensible 1–2% per-trade zone.` });
+      reasons.push({ tone: 'good', text: `Planned stop loss is ${accountRisk.toFixed(1)}% of entered capital, within the model's lower risk band. This is not a guaranteed loss limit.` });
     }
   } else if (portfolio > 0 && !plan) {
-    reasons.push({ tone: 'caution', text: 'With no stop set, there is no defined "worst case" to size against — a reason to wait for a real setup.' });
+    reasons.push({ tone: 'caution', text: 'This model supplies no stop, so the planned stop-loss scenario cannot be calculated. Losses remain possible.' });
     caution = true;
   }
 
@@ -257,12 +257,12 @@ function assess({
 
 function Cell({ label, value, sub, color }: { label: string; value: string; sub?: string; color?: string }) {
   return (
-    <div className="bg-[var(--surface)] px-4 py-3">
-      <p className="text-[10px] uppercase tracking-widest text-[var(--muted)]">{label}</p>
-      <p className="tnum mt-1 text-base font-semibold" style={color ? { color } : undefined}>
+    <div className="min-w-0 bg-[var(--surface)] px-4 py-3">
+      <p className="text-xs text-[var(--muted)]">{label}</p>
+      <p className="tnum mt-1 break-words text-base font-semibold" style={color ? { color, overflowWrap: 'anywhere' } : { overflowWrap: 'anywhere' }}>
         {value}
       </p>
-      {sub && <p className="text-[10px] text-[var(--muted-2)]">{sub}</p>}
+      {sub && <p className="text-xs text-[var(--muted)]">{sub}</p>}
     </div>
   );
 }

@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 
   if (body.action === 'test') {
     const delivered = await sendToUser(userId, {
-      title: 'StockScope alerts are on',
+      title: 'NIVRA alerts are on',
       body: 'This is a test notification. Price alerts will arrive here even with the tab closed.',
       url: '/',
     });

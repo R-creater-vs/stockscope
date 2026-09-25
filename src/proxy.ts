@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
  * as a request header (so THIS request's handler sees it immediately, before the
  * cookie round-trips).
  */
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   let id = req.cookies.get('sid')?.value;
   const isNew = !id;
   if (!id) id = crypto.randomUUID();
