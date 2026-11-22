@@ -1,0 +1,301 @@
+{
+  "engine": "long",
+  "engineLabel": "Long-term price-trend proxy",
+  "engineSource": "longTrendStrategy in src/lib/backtest.ts",
+  "window": "Recent (trailing 3-year fetch)",
+  "windowKey": "recent",
+  "plan": "docs/research/short-long-remeasurement-plan.md",
+  "codeVersion": "bf49852",
+  "dataFetchedAt": "2026-11-22T15:58:21.591Z",
+  "fetchSpan": {
+    "years": 3
+  },
+  "decisionWindow": {
+    "from": "2024-10-01",
+    "to": "2026-08-24",
+    "tradingDates": 470
+  },
+  "method": {
+    "horizonSessions": 60,
+    "bootstrap": {
+      "type": "circular block over trading dates",
+      "blockSessions": 120,
+      "replicates": 2000,
+      "seed": 20261122
+    },
+    "tradeBootstrap": "iid over calendar months of entry"
+  },
+  "sanity": {
+    "samplesReproduceAppCorrelation": true,
+    "ourPooled": -0.293114,
+    "appPooled": -0.293114
+  },
+  "primary": {
+    "pooledCorrelation": {
+      "estimate": -0.2931,
+      "lo": -0.4371,
+      "hi": -0.1964,
+      "se": 0.0599
+    },
+    "expectancyR": {
+      "estimate": -0.1756,
+      "lo": -0.4483,
+      "hi": 0.1209,
+      "se": 0.1499
+    },
+    "profitFactor": {
+      "estimate": 0.7727,
+      "lo": 0.4597,
+      "hi": 1.2377,
+      "se": 0.2038
+    },
+    "winRatePct": {
+      "estimate": 30.5911,
+      "lo": 20.6781,
+      "hi": 41.5833,
+      "se": 5.5248
+    },
+    "trades": 1252,
+    "samples": 77068,
+    "stocks": 165,
+    "avgBuyHoldPct": 1.12,
+    "avgStrategyReturnPct": -9.69,
+    "regimeFiltered": {
+      "trades": 1106,
+      "expectancyR": -0.2009,
+      "profitFactor": 0.7351
+    }
+  },
+  "buckets": [
+    {
+      "label": "<40",
+      "n": 33647,
+      "avgForwardReturnPct": 1.773,
+      "winRatePct": 50.1
+    },
+    {
+      "label": "40-50",
+      "n": 5343,
+      "avgForwardReturnPct": 2.753,
+      "winRatePct": 52.4
+    },
+    {
+      "label": "50-58",
+      "n": 2985,
+      "avgForwardReturnPct": -2.711,
+      "winRatePct": 37.5
+    },
+    {
+      "label": "58-72 (Buy)",
+      "n": 8917,
+      "avgForwardReturnPct": -1.127,
+      "winRatePct": 42.7
+    },
+    {
+      "label": "72+ (Strong)",
+      "n": 26176,
+      "avgForwardReturnPct": 0.336,
+      "winRatePct": 47.2
+    }
+  ],
+  "secondary": {
+    "meanDailyIC": {
+      "estimate": 0.0184,
+      "lo": -0.0987,
+      "hi": 0.1322,
+      "se": 0.0583
+    },
+    "topMinusBottomSpreadPct": {
+      "estimate": -1.437,
+      "lo": -5.855,
+      "hi": 2.3993,
+      "se": 2.1347
+    },
+    "regime": {
+      "niftyAbove50EMA": {
+        "estimate": -0.2396,
+        "lo": -0.3695,
+        "hi": -0.1613,
+        "se": 0.0531,
+        "samples": 40014
+      },
+      "niftyBelow50EMA": {
+        "estimate": -0.3219,
+        "lo": -0.4875,
+        "hi": -0.2038,
+        "se": 0.0705,
+        "samples": 36897
+      }
+    },
+    "nonOverlapping": {
+      "offsets": 60,
+      "mean": -0.2896,
+      "min": -0.4199,
+      "max": -0.1713
+    },
+    "inputs": []
+  },
+  "nullCalibration": {
+    "method": "each stock's days shuffled in time (return, open gap and high/low shape kept per day); same engine, rules and statistics",
+    "plan": "docs/research/short-long-remeasurement-plan.md",
+    "runs": [
+      {
+        "seed": 1,
+        "pooledCorrelation": -0.2232,
+        "meanDailyIC": -0.0597,
+        "expectancyR": 0.2118,
+        "profitFactor": 1.3977,
+        "trades": 1408
+      },
+      {
+        "seed": 2,
+        "pooledCorrelation": -0.2573,
+        "meanDailyIC": -0.0744,
+        "expectancyR": 0.2206,
+        "profitFactor": 1.3715,
+        "trades": 1370
+      },
+      {
+        "seed": 3,
+        "pooledCorrelation": -0.2786,
+        "meanDailyIC": -0.0805,
+        "expectancyR": 0.2353,
+        "profitFactor": 1.4158,
+        "trades": 1438
+      }
+    ],
+    "meanPooledCorrelation": -0.253,
+    "meanDailyIC": -0.0715,
+    "realMinusNullPooled": -0.0401
+  },
+  "limits": {
+    "coverage": {
+      "attempted": 165,
+      "studied": 165,
+      "fetchFailed": [],
+      "tooShort": [],
+      "listedDuringFetch": [
+        {
+          "symbol": "TMCV.NS",
+          "firstBar": "2025-11-12"
+        }
+      ]
+    },
+    "survivorship": {
+      "from": "2024-10-01",
+      "to": "2026-08-24",
+      "stocksWithBothDates": 164,
+      "equalWeightStockReturnPct": 1.53,
+      "medianStockReturnPct": -3.92,
+      "nifty50PriceReturnPct": -6.12,
+      "shareOfStocksBeatingNiftyPct": 53
+    },
+    "dataQuality": {
+      "rawRows": 121610,
+      "droppedRows": 8,
+      "keptBars": 121602,
+      "zeroVolumeBars": 335,
+      "duplicateDates": 0,
+      "missingSessions": 1,
+      "extremeMoves": [
+        {
+          "symbol": "INDUSINDBK.NS",
+          "date": "2025-03-11",
+          "movePct": -27.2
+        },
+        {
+          "symbol": "RECLTD.NS",
+          "date": "2024-06-04",
+          "movePct": -25.2
+        },
+        {
+          "symbol": "PFC.NS",
+          "date": "2024-06-04",
+          "movePct": -23.1
+        },
+        {
+          "symbol": "IRFC.NS",
+          "date": "2024-01-16",
+          "movePct": 25.1
+        },
+        {
+          "symbol": "POLICYBZR.NS",
+          "date": "2026-09-24",
+          "movePct": -36
+        },
+        {
+          "symbol": "OFSS.NS",
+          "date": "2024-01-18",
+          "movePct": 28.7
+        },
+        {
+          "symbol": "ADANIGREEN.NS",
+          "date": "2024-11-29",
+          "movePct": 21.8
+        },
+        {
+          "symbol": "TMPV.NS",
+          "date": "2025-10-14",
+          "movePct": -40.2
+        },
+        {
+          "symbol": "VEDL.NS",
+          "date": "2026-04-30",
+          "movePct": -64.9
+        },
+        {
+          "symbol": "SAIL.NS",
+          "date": "2024-06-04",
+          "movePct": -20
+        },
+        {
+          "symbol": "HINDZINC.NS",
+          "date": "2024-05-21",
+          "movePct": 25.6
+        },
+        {
+          "symbol": "TRENT.NS",
+          "date": "2026-01-01",
+          "movePct": -33
+        },
+        {
+          "symbol": "BHEL.NS",
+          "date": "2024-06-04",
+          "movePct": -20.8
+        },
+        {
+          "symbol": "CONCOR.NS",
+          "date": "2025-01-01",
+          "movePct": -20.9
+        },
+        {
+          "symbol": "ADANIENT.NS",
+          "date": "2024-11-21",
+          "movePct": -22.6
+        },
+        {
+          "symbol": "ADANIPORTS.NS",
+          "date": "2024-06-04",
+          "movePct": -21.1
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2023-12-29",
+          "movePct": 20.8
+        },
+        {
+          "symbol": "IEX.NS",
+          "date": "2025-07-24",
+          "movePct": -29.6
+        },
+        {
+          "symbol": "STLTECH.NS",
+          "date": "2025-04-24",
+          "movePct": -25.2
+        }
+      ],
+      "extremeMoveThresholdPct": 20,
+      "extremeMoveCount": 19
+    }
+  }
+}

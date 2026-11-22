@@ -6,6 +6,10 @@ The frontend has been redesigned as NIVRA. This name is not cleared for adoption
 
 The [search and loading update](docs/search-and-loading.md) simplifies stock lookup, adds elapsed-time/cancel/retry controls, and makes history checks easier to find without blocking other searches.
 
+The [mid-term engine study](docs/research/mid-engine-study.md) tests whether the weeks-to-months score predicts returns, under a [plan fixed in advance](docs/research/mid-engine-preregistration.md): two separate periods, 95% intervals, a shuffled-price baseline, per-input analysis, and measured survivorship and data-quality limits. Result: no demonstrated edge. The [three-engine summary](docs/research/engine-studies.md) applies the same test to the short-term score and the long-term price proxy, with the same result. Reproduce any of them with `node scripts/research/engine-study.mjs --engine short|mid|long --window recent|2019-2022 --null 3 --keep-placeholder-bars`.
+
+The [weeks-to-months analysis](docs/weeks-to-months.md) adds a descriptive evidence brief to the mid-term (position) view: market and sector trend, relative strength, dated candle and indicator events, fundamentals context, attributed news and position risks, each with its rule and source date. It does not change the mid-term score and has not been historically tested.
+
 A research and decision-support app for Indian stocks. Search NSE/BSE listings, inspect eight
 weighted swing signals, compare timeframes, review model risk levels, and monitor saved stocks.
 The configured scan universe contains **165 NSE equities**; individual lookup also supports BSE,
@@ -32,6 +36,7 @@ Other scripts:
 | `npm run build:termux` | Android/Termux production build using Webpack because Turbopack native bindings are unavailable there |
 | `npm run typecheck` | TypeScript, no emit |
 | `npm run lint` | ESLint |
+| `npm test` | Rule tests for the candle-pattern, indicator-event, bar-completion and sector-benchmark logic (synthetic fixtures; no server or network) |
 | `npm run verify` | Validates the indicator math against independent references (**dev server must be running**) |
 | `npm run verify:math` | Checks frozen pre-redesign numerical regression cases; no running server or market network request needed |
 | `npm run verify:ui` | Runs Chrome/CDP layout, accessibility and interaction checks against a local server with an **isolated verification database** |
@@ -61,7 +66,9 @@ timings are not performance guarantees for other devices or network conditions.
 
 ## Data sources and optional services
 
-Market research uses Yahoo Finance and Google News RSS without application API keys. Optional
+Market research uses Yahoo Finance and Google News RSS without application API keys. Weeks-to-months
+comparisons also read Nifty 50 and NSE sector-index history and dated quarterly EPS from Yahoo;
+see the [sector index mapping](docs/weeks-to-months.md#sector-index-mapping). Optional
 Ollama prose runs locally. Watchlists and alerts use embedded SQLite; browser push uses
 self-generated VAPID keys. See [Accounts, persistence & alerts](#accounts-persistence--alerts).
 Google sign-in requires OAuth credentials. The repository contains a broker-provider template,
@@ -79,6 +86,12 @@ but no broker integration or order execution is connected.
   confidence and validation status; then price action, grouped weighted contributions, model
   trade plan, sizing, risks, news and deeper research. Weekly agreement and available earnings
   dates add context. Sparse fundamentals and analyst coverage remain explicitly unavailable.
+  The **Mid-term · weeks to months** view adds the
+  [weeks-to-months evidence brief](docs/weeks-to-months.md): Nifty 50 and sector-index trend,
+  stock trend checks with confirmed crossovers, 3/6/12-month relative strength, structure,
+  candle and indicator events with confirmation rules, fundamentals with source labels, events,
+  news, risk arithmetic, conflicts and the engine's stored historical status. The chosen
+  timeframe is remembered in the browser.
 - **Watchlist** — server-persisted saved stocks, refreshed scores, changes since the previous
   in-session reading, alert state and a route back to reports. Anonymous access depends on the
   browser identity cookie; deleting it can lose access to those saved records.
@@ -115,6 +128,9 @@ data providers ──▶ src/lib/providers/    the data seam (Yahoo default; bro
                         │                 weekly resampling
                         ▼
                   src/lib/swing.ts       8 weighted signals + weekly → score → verdict → plan
+                  src/lib/midterm.ts     weeks-to-months score (rules shown from midRules.ts)
+                  src/lib/positionEvidence.ts  descriptive weeks-to-months evidence (not a score input),
+                        │                 with candlePatterns.ts, indicatorEvents.ts, sectorBenchmarks.ts
                         │
                   src/lib/screener.ts    universe scan → buckets + sector rotation
                         │
@@ -197,7 +213,12 @@ Source coverage and the current implementation impose limits:
 - **Company names can resolve ambiguously**, especially after corporate actions. Pick the exact
   company and exchange in autocomplete and check the resolved report identity.
 - **News and earnings are incomplete context.** Headlines are leads to verify; earnings dates can
-  be missing or estimated. Neither source guarantees that all material events are known.
+  be missing or estimated. Neither source guarantees that all material events are known. Headlines
+  that do not name the company are hidden and counted; exchange filings remain the primary source.
+- **Comparisons are price returns.** Dividends are excluded for stocks and indices. Some sector
+  indices are approximate matches, and several NSE indices have no provider history.
+- **Provider revenue/profit history is not used.** In a 22 Nov 2026 check it contained zero-filled
+  and inconsistent periods for Indian listings; only dated quarterly EPS is shown.
 
 ---
 
@@ -262,19 +283,33 @@ universe replay. `npm run backtest` invokes the same study endpoint.
   summarize simulated wins, expectancy, profit factor and drawdown. Forward-return observations
   overlap and are not independent trades.
 
-The stored short-term record in [`validation.ts`](src/lib/validation.ts), measured **2026-07-24**,
-contains **128 stocks and 67,056 signal observations**: score/10-day-return correlation **−0.0717**,
-net expectancy **−0.021R per trade**, and profit factor **0.80**. These are inherited study records,
-not new results produced by the redesign. An earlier comparison window behaved differently.
-The conclusion remains **no demonstrated stable edge**. Negative historical correlation does not
-validate a profitable inverse strategy.
+All three stored records in [`validation.ts`](src/lib/validation.ts) were re-measured on
+**2026-11-22** with the same study: two non-overlapping periods (about Oct 2024 to late 2026,
+and 2019–2022), 95% block-bootstrap intervals, a shuffled-price baseline and the daily
+cross-sectional rank correlation. The [three-engine summary](docs/research/engine-studies.md)
+has the full table. In brief:
 
-The chosen current universe introduces survivorship/selection concerns. Historical comparisons
-are not prospective untouched tests; the stored record lacks uncertainty intervals and full
-per-stock output. The long-term study tests a price-only proxy because point-in-time historical
-fundamentals are unavailable; it does not validate the actual fundamental model. Single-stock
-backtests use available history since listing, while lightweight scanner histories are shorter
-and can contain very small trade samples. A favorable historical row is research context only.
+| Score | Correlation, recent / 2019–22 | Shuffled-price baseline | Daily rank correlation | Status |
+| --- | --- | --- | --- | --- |
+| Short (10 sessions) | −0.073 / +0.012 | −0.034 / −0.024 | −0.015 / −0.017 | No demonstrated edge |
+| Mid (20 sessions) | −0.199 / −0.049 | −0.124 / −0.066 | −0.008 / +0.001 | No demonstrated edge |
+| Long-term price proxy (60 sessions) | −0.293 / −0.099 | −0.253 / −0.137 | +0.018 / +0.038 | No demonstrated edge |
+
+The app's correlation is computed within each stock's own history, which reads negative even
+when prices are shuffled and nothing is predictable. Most of the earlier "inverted" readings
+came from that, not from the market. No score passes the pass mark fixed in advance in both
+periods, none ranks stocks on the same day, and buy-and-hold beat trading every score in both
+periods. The July 2026 figures stay in each record as `previous`. Negative historical correlation
+does not validate a profitable inverse strategy.
+
+The chosen current universe introduces survivorship/selection concerns, measured in the
+[mid study](docs/research/mid-engine-study.md#survivorship-bias). Only the mid engine's and the
+long proxy's 2019–2022 windows were unseen when their plans were written; the short engine's
+are a re-measurement. The long-term study tests a price-only proxy because point-in-time
+historical fundamentals are unavailable; it does not validate the actual fundamental model.
+Single-stock backtests use available history since listing, while lightweight scanner histories
+are shorter and can contain very small trade samples. A favorable historical row is research
+context only.
 
 ---
 

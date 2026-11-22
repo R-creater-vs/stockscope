@@ -17,6 +17,25 @@ import { AnalystPanel, FundamentalsPanel, KeyMetrics, LevelsPanel, RiskPanel, St
 const PriceChart = dynamic(() => import('./PriceChart'), { loading: () => <div className="h-80 skeleton-row" role="status">Loading price chart</div> });
 const LiveChart = dynamic(() => import('./LiveChart'));
 const BacktestPanel = dynamic(() => import('./BacktestPanel'), { loading: () => <p className="p-5 text-sm text-[var(--muted)]" role="status">Opening history check…</p> });
+const PositionBrief = dynamic(() => import('./PositionBrief'), { loading: () => <p className="rounded-xl border border-[var(--border)] p-5 text-sm text-[var(--muted)]" role="status">Loading weeks-to-months evidence…</p> });
+
+const HORIZON_KEY = 'nivra.reportHorizon';
+
+/** The last timeframe this viewer chose. A per-browser convenience; it is never required. */
+function readHorizon(): Timeframe {
+  try {
+    const stored = typeof window === 'undefined' ? null : window.localStorage.getItem(HORIZON_KEY);
+    return stored === 'mid' || stored === 'long' || stored === 'short' ? stored : 'short';
+  } catch {
+    return 'short';
+  }
+}
+
+const HISTORY_PROMPT: Record<Timeframe, [string, string]> = {
+  short: ['How did this strategy perform on this stock?', 'Check past trades, losses and assumed costs.'],
+  mid: ['How did the short-term rules perform on this stock?', 'The per-stock history check replays the short-term (swing) rules only. The mid-term engine is covered by the stored universe study summarised in the weeks-to-months evidence above and in Strategy evidence.'],
+  long: ['How did the short-term rules perform on this stock?', 'The per-stock history check replays the short-term (swing) rules only. The long-term fundamental score cannot be replayed without point-in-time fundamentals.'],
+};
 
 const REPORT_SECTIONS = [
   ['summary', 'Summary'],
@@ -29,8 +48,12 @@ const REPORT_SECTIONS = [
 
 export default function Report({ data, refreshKey }: { data: AnalyzeResponse; refreshKey: number }) {
   const { analysis, company, timeframes } = data;
-  const [horizon, setHorizon] = useState<Timeframe>('short');
+  const [horizon, setHorizonState] = useState<Timeframe>(readHorizon);
   const [historyStarted, setHistoryStarted] = useState(false);
+  const setHorizon = (next: Timeframe) => {
+    setHorizonState(next);
+    try { window.localStorage.setItem(HORIZON_KEY, next); } catch { /* Storage can be unavailable; the choice still applies now. */ }
+  };
   const active = timeframes[horizon];
   useEffect(() => { document.querySelector<HTMLElement>('#report-region h1')?.focus(); }, [company.profile.symbol]);
 
@@ -67,8 +90,24 @@ export default function Report({ data, refreshKey }: { data: AnalyzeResponse; re
       {horizon === 'long' && company.dataStatus?.fundamentals === 'unavailable' && <p className="notice">Some fundamentals are unavailable, so this long-term assessment may be incomplete. Refresh the report to try again.</p>}
       <p className="report-summary">{active.summary}</p>
 
+      {horizon === 'mid' ? (
+        data.position ? (
+          <PositionBrief position={data.position} company={company} mid={timeframes.mid} refreshKey={refreshKey} />
+        ) : (
+          <p className="notice">Weeks-to-months evidence is unavailable for this report: it could not be computed, or the report was cached before it existed. Refresh the report to try again. The mid-term score above is unaffected.</p>
+        )
+      ) : (
+        <div className="flex flex-col items-start justify-between gap-3 rounded-xl border border-[var(--border)] px-5 py-4 sm:flex-row sm:items-center">
+          <div>
+            <p className="text-sm font-semibold">Holding for weeks to months?</p>
+            <p className="mt-1 text-sm text-[var(--muted)]">The mid-term view adds market and sector trend, relative strength, dated patterns, fundamentals context, news and position risks, each with its rule and source date.</p>
+          </div>
+          <button type="button" onClick={() => setHorizon('mid')} className="btn-glass shrink-0">View weeks-to-months evidence</button>
+        </div>
+      )}
+
       <div className="flex flex-col items-start justify-between gap-3 border-y border-[var(--border)] py-4 sm:flex-row sm:items-center">
-        <div><p className="text-sm font-semibold">How did this strategy perform on this stock?</p><p className="mt-1 text-sm text-[var(--muted)]">Check past trades, losses and assumed costs.</p></div>
+        <div><p className="text-sm font-semibold">{HISTORY_PROMPT[horizon][0]}</p><p className="mt-1 text-sm text-[var(--muted)]">{HISTORY_PROMPT[horizon][1]}</p></div>
         <button type="button" onClick={runHistory} className="min-h-11 shrink-0 rounded-lg bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-[var(--ink)]">{historyStarted ? 'View history check' : 'Run history check'}</button>
       </div>
 
@@ -127,7 +166,7 @@ export default function Report({ data, refreshKey }: { data: AnalyzeResponse; re
         title="Latest news"
         subtitle="What may be moving the price — the context the chart can't show"
       >
-        <NewsPanel company={company.profile.name} refreshKey={refreshKey} />
+        <NewsPanel company={company.profile.name} symbol={company.profile.symbol} refreshKey={refreshKey} />
       </Collapsible>
 
       {/* Everything below is context rather than decision input, so it starts

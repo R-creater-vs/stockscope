@@ -9,6 +9,7 @@ export {
   activeProvider,
   fetchBars,
   fetchCompany,
+  fetchReportedResults,
   resolveSymbol,
   searchIndian,
 } from './provider';
@@ -23,5 +24,7 @@ export type {
   Fundamentals,
   Profile,
   Quote,
+  ReportedQuarter,
+  ReportedResults,
   SymbolMatch,
 } from '../yahoo';

@@ -13,7 +13,7 @@
  */
 
 import type { Bar } from '../indicators';
-import type { CompanyData, FetchSpan, SymbolMatch } from '../yahoo';
+import type { CompanyData, FetchSpan, ReportedResults, SymbolMatch } from '../yahoo';
 import type { DataRequestOptions } from '../providerRequest';
 
 export interface DataProvider {
@@ -30,6 +30,12 @@ export interface DataProvider {
     options?: DataRequestOptions,
   ): Promise<{ bars: Bar[]; symbol: string; switchedFrom?: string }>;
   fetchCompany(symbol: string, options?: DataRequestOptions): Promise<CompanyData>;
+  /**
+   * Optional dated quarterly results. A provider without this capability is
+   * still complete: callers treat a missing method or a null result as
+   * "unavailable", never as zero.
+   */
+  fetchReportedResults?(symbol: string, options?: DataRequestOptions): Promise<ReportedResults | null>;
 }
 
 let cached: DataProvider | null = null;
@@ -59,6 +65,7 @@ export function activeProvider(): DataProvider {
 import {
   fetchBars as yfBars,
   fetchCompany as yfCompany,
+  fetchReportedResults as yfResults,
   resolveSymbol as yfResolve,
   searchIndian as yfSearch,
 } from '../yahoo';
@@ -70,6 +77,7 @@ const yahooProvider: DataProvider = {
   resolveSymbol: yfResolve,
   fetchBars: yfBars,
   fetchCompany: yfCompany,
+  fetchReportedResults: yfResults,
 };
 
 /* ---------------------------------------------------- convenience delegates */
@@ -80,3 +88,7 @@ export const searchIndian: DataProvider['searchIndian'] = (q, options) => active
 export const resolveSymbol: DataProvider['resolveSymbol'] = (i, options) => activeProvider().resolveSymbol(i, options);
 export const fetchBars: DataProvider['fetchBars'] = (s, span, options) => activeProvider().fetchBars(s, span, options);
 export const fetchCompany: DataProvider['fetchCompany'] = (s, options) => activeProvider().fetchCompany(s, options);
+export const fetchReportedResults = (s: string, options?: DataRequestOptions): Promise<ReportedResults | null> => {
+  const provider = activeProvider();
+  return provider.fetchReportedResults ? provider.fetchReportedResults(s, options) : Promise.resolve(null);
+};

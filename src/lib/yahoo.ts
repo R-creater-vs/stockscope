@@ -10,6 +10,7 @@
 import YahooFinance from 'yahoo-finance2';
 import { ExtendedCookieJar } from 'yahoo-finance2/lib/cookieJar';
 import type { Bar } from './indicators';
+import { dropPlaceholderBars } from './barQuality';
 import { UNIVERSE } from './universe';
 import { withDeadline, type DataRequestOptions } from './providerRequest';
 
@@ -224,20 +225,27 @@ function salvageQuotes(err: unknown): RawQuoteRow[] | null {
   return Array.isArray(quotes) ? (quotes as RawQuoteRow[]) : null;
 }
 
+/**
+ * Complete rows only, then without placeholder bars (see `isPlaceholderBar`):
+ * a session Yahoo has no data for is treated as missing, not as a day with no
+ * price range.
+ */
 function toBars(rows: RawQuoteRow[]): Bar[] {
-  return rows
-    .filter(
-      (q) =>
-        q.open != null && q.high != null && q.low != null && q.close != null && q.volume != null,
-    )
-    .map((q) => ({
-      date: new Date(q.date).toISOString().slice(0, 10),
-      open: q.open as number,
-      high: q.high as number,
-      low: q.low as number,
-      close: q.close as number,
-      volume: q.volume as number,
-    }));
+  return dropPlaceholderBars(
+    rows
+      .filter(
+        (q) =>
+          q.open != null && q.high != null && q.low != null && q.close != null && q.volume != null,
+      )
+      .map((q) => ({
+        date: new Date(q.date).toISOString().slice(0, 10),
+        open: q.open as number,
+        high: q.high as number,
+        low: q.low as number,
+        close: q.close as number,
+        volume: q.volume as number,
+      })),
+  );
 }
 
 /**
@@ -513,6 +521,95 @@ export async function fetchCompany(symbol: string, options?: DataRequestOptions)
       ? { fundamentals: 'available' }
       : { fundamentals: 'unavailable', message: 'Some company fundamentals, analyst data and earnings dates could not be loaded. Missing fields are unknown; refresh to try again.' },
   };
+}
+
+export interface ReportedQuarter {
+  /** Fiscal period end as supplied by the provider (YYYY-MM-DD). */
+  periodEnd: string | null;
+  /** Publication timestamp as supplied by the provider (ISO 8601). */
+  reportedAt: string | null;
+  fiscalQuarter: string | null;
+  calendarQuarter: string | null;
+  epsActual: number | null;
+  /** The provider's analyst consensus: an estimate, not a company figure. */
+  epsEstimate: number | null;
+}
+
+export interface ReportedResults {
+  /** Oldest first, at most four quarters. */
+  quarters: ReportedQuarter[];
+  currency: string | null;
+  retrievedAt: string;
+}
+
+function numOf(v: unknown): number | null {
+  if (typeof v === 'number' && isFinite(v)) return v;
+  if (v && typeof v === 'object' && typeof (v as { raw?: unknown }).raw === 'number') {
+    const raw = (v as { raw: number }).raw;
+    return isFinite(raw) ? raw : null;
+  }
+  return null;
+}
+
+function isoOf(v: unknown): string | null {
+  let d: Date | null = null;
+  if (v instanceof Date) d = v;
+  else if (typeof v === 'string' && v) d = new Date(v);
+  else {
+    const n = numOf(v);
+    // Untransformed provider dates are epoch seconds.
+    if (n !== null) d = new Date(n < 1e11 ? n * 1000 : n);
+  }
+  return d && !isNaN(d.getTime()) ? d.toISOString() : null;
+}
+
+/**
+ * Dated quarterly EPS from the provider's `earnings` module. Optional context:
+ * any failure returns null and never blocks a report. Only EPS rows that carry
+ * a period end or a reported date are kept. The same module's revenue and
+ * earnings charts are deliberately ignored: for Indian listings they were
+ * observed (22 Nov 2026) to contain zero-filled and inconsistent periods.
+ */
+export async function fetchReportedResults(symbol: string, options?: DataRequestOptions): Promise<ReportedResults | null> {
+  const client = options?.priority === 'background' ? yf : interactiveYf;
+  try {
+    const raw = await withDeadline(
+      (signal) => client.quoteSummary(symbol, { modules: ['earnings'] }, { validateResult: false, fetchOptions: { signal } }),
+      4_000,
+      options?.signal,
+    );
+    const earnings = (raw as { earnings?: Record<string, unknown> } | null)?.earnings;
+    const chart = earnings?.earningsChart as { quarterly?: unknown } | undefined;
+    const quarterly: unknown = chart?.quarterly;
+    const rows: unknown[] = Array.isArray(quarterly) ? quarterly : [];
+    const str = (v: unknown): string | null => (typeof v === 'string' && v ? v : null);
+    const quarters: ReportedQuarter[] = rows
+      .map((r) => {
+        const row = (r ?? {}) as Record<string, unknown>;
+        const actual = numOf(row.actual);
+        const periodEnd = isoOf(row.periodEndDate);
+        return {
+          periodEnd: periodEnd ? periodEnd.slice(0, 10) : null,
+          reportedAt: isoOf(row.reportedDate),
+          fiscalQuarter: str(row.fiscalQuarter),
+          calendarQuarter: str(row.calendarQuarter) ?? str(row.date),
+          // The provider zero-fills some missing values; an exact zero is treated as unknown.
+          epsActual: actual === 0 ? null : actual,
+          epsEstimate: numOf(row.estimate),
+        };
+      })
+      .filter((q) => q.epsActual !== null && (q.periodEnd !== null || q.reportedAt !== null))
+      .sort((a, b) => ((a.periodEnd ?? a.reportedAt ?? '') < (b.periodEnd ?? b.reportedAt ?? '') ? -1 : 1));
+    if (!quarters.length) return null;
+    return {
+      quarters: quarters.slice(-4),
+      currency: str(earnings?.financialCurrency),
+      retrievedAt: new Date().toISOString(),
+    };
+  } catch {
+    options?.signal?.throwIfAborted();
+    return null;
+  }
 }
 
 /**

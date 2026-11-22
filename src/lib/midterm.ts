@@ -5,6 +5,11 @@
  * the primary trend: the 50/200-day regime, the weekly chart, and multi-month
  * momentum. Noise that matters to a swing trader (a single overbought day) is
  * deliberately down-weighted here.
+ *
+ * The plain-language rule sentences shown in the report live in `midRules.ts`;
+ * update them with any change here. The stored validation record in
+ * `validation.ts` describes exactly these rules, so changing a weight or
+ * threshold also requires re-running the study before showing that record.
  */
 
 import {
@@ -73,7 +78,7 @@ export function analyzeMidTerm(bars: Bar[]): TimeframeAnalysis {
       weight: 20,
       detail:
         above50 && above200
-          ? `Price ${inr(price)} is above both the 50-day (${inr(s50)}) and 200-day (${inr(s200)}) SMAs — a healthy primary uptrend.`
+          ? `Price ${inr(price)} is above both the 50-day (${inr(s50)}) and 200-day (${inr(s200)}) SMAs — the rule's strongest trend reading.`
           : !above50 && !above200
             ? `Price ${inr(price)} is below both the 50-day (${inr(s50)}) and 200-day (${inr(s200)}) SMAs — a bearish primary trend reading.`
             : `Price ${inr(price)} is on one side of its 50-day but the other of its 200-day — the trend is in transition.`,
@@ -112,8 +117,8 @@ export function analyzeMidTerm(bars: Bar[]): TimeframeAnalysis {
       detail: up
         ? `The weekly chart has bullish ordering: price above the 10-week EMA, which is above the 30-week EMA.`
         : down
-          ? `The weekly chart is in a downtrend — price under both the 10- and 30-week EMAs. Mid-term longs fight the bigger trend.`
-          : `The weekly trend is sideways; the 10- and 30-week EMAs are entangled.`,
+          ? `The weekly chart has bearish ordering: price below the 10-week EMA, which is below the 30-week EMA. A bullish daily reading would conflict with this weekly structure.`
+          : `The weekly ordering is mixed: price and the 10- and 30-week EMAs are not stacked in either direction.`,
     });
   }
 
@@ -130,8 +135,8 @@ export function analyzeMidTerm(bars: Bar[]): TimeframeAnalysis {
       score,
       weight: 12,
       detail: trending
-        ? `ADX ${adxV.toFixed(1)} confirms a real trend, and it is a ${bullish ? 'up' : 'down'}trend (+DI ${plusDI.toFixed(1)} vs -DI ${minusDI.toFixed(1)}).`
-        : `ADX ${adxV.toFixed(1)} is low — the stock is ranging rather than trending, so a position entry has no directional tailwind yet.`,
+        ? `ADX ${adxV.toFixed(1)} is above the rule's 22 threshold, so the rule treats the stock as trending; +DI ${plusDI.toFixed(1)} vs −DI ${minusDI.toFixed(1)} makes it an ${bullish ? 'up' : 'down'}trend reading.`
+        : `ADX ${adxV.toFixed(1)} is at or below the rule's 22 threshold, so the trend-strength input is 0: no trending state under this rule.`,
     });
   }
 
@@ -164,7 +169,7 @@ export function analyzeMidTerm(bars: Bar[]): TimeframeAnalysis {
         r >= 80
           ? `RSI ${r.toFixed(1)} is above the rule's overbought threshold. The score penalises this extension; it does not predict a pullback.`
           : r < 30
-            ? `RSI ${r.toFixed(1)} is oversold; for a position trade that is a warning, not a buy signal, unless the primary trend is up.`
+            ? `RSI ${r.toFixed(1)} is below 30. The rule assigns a small negative input; an oversold reading does not imply a recovery.`
             : `RSI ${r.toFixed(1)} is unremarkable for the medium term — neither stretched nor washed out.`,
     });
   }
@@ -297,7 +302,7 @@ function buildRiskFlags(
   if (atr14 !== null) {
     const atrPct = (atr14 / price) * 100;
     if (atrPct > 4)
-      flags.push(`Elevated volatility (ATR ${atrPct.toFixed(1)}% of price) — size a position smaller to survive the swings.`);
+      flags.push(`Elevated volatility: ATR is ${atrPct.toFixed(1)}% of price, above the rule's 4% threshold. Wider daily ranges mean a more distant stop and larger possible gaps.`);
   }
   if (w52Low !== null && ((price - w52Low) / w52Low) * 100 < 10)
     flags.push('Trading within 10% of its 52-week low. Proximity to the low does not establish support or imply a recovery.');
@@ -326,7 +331,7 @@ function buildSummary(
   const strength =
     adxV !== null
       ? adxV > 22
-        ? ' The trend has genuine strength (ADX above 22).'
+        ? ' ADX is above 22, so the trend-strength rule is active.'
         : ' ADX is at or below 22, so the trend-strength rule is neutral.'
       : '';
 

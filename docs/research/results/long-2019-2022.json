@@ -1,0 +1,589 @@
+{
+  "engine": "long",
+  "engineLabel": "Long-term price-trend proxy",
+  "engineSource": "longTrendStrategy in src/lib/backtest.ts",
+  "window": "2019–2022",
+  "windowKey": "2019-2022",
+  "plan": "docs/research/short-long-remeasurement-plan.md",
+  "codeVersion": "bf49852",
+  "dataFetchedAt": "2026-11-22T16:02:36.940Z",
+  "fetchSpan": {
+    "from": "2017-08-19",
+    "to": "2022-12-31"
+  },
+  "decisionWindow": {
+    "from": "2019-01-01",
+    "to": "2022-10-04",
+    "tradingDates": 930
+  },
+  "method": {
+    "horizonSessions": 60,
+    "bootstrap": {
+      "type": "circular block over trading dates",
+      "blockSessions": 120,
+      "replicates": 2000,
+      "seed": 20261122
+    },
+    "tradeBootstrap": "iid over calendar months of entry"
+  },
+  "sanity": {
+    "samplesReproduceAppCorrelation": true,
+    "ourPooled": -0.099316,
+    "appPooled": -0.099316
+  },
+  "primary": {
+    "pooledCorrelation": {
+      "estimate": -0.0993,
+      "lo": -0.2527,
+      "hi": 0.0081,
+      "se": 0.0658
+    },
+    "expectancyR": {
+      "estimate": 0.2755,
+      "lo": 0.0875,
+      "hi": 0.4554,
+      "se": 0.0948
+    },
+    "profitFactor": {
+      "estimate": 1.6048,
+      "lo": 1.2106,
+      "hi": 2.0789,
+      "se": 0.2196
+    },
+    "winRatePct": {
+      "estimate": 43.5723,
+      "lo": 37.577,
+      "hi": 49.3901,
+      "se": 3.0216
+    },
+    "trades": 2357,
+    "samples": 146339,
+    "stocks": 163,
+    "avgBuyHoldPct": 121.4,
+    "avgStrategyReturnPct": 76.31,
+    "regimeFiltered": {
+      "trades": 2183,
+      "expectancyR": 0.3058,
+      "profitFactor": 1.6685
+    }
+  },
+  "buckets": [
+    {
+      "label": "<40",
+      "n": 50601,
+      "avgForwardReturnPct": 6.139,
+      "winRatePct": 58.9
+    },
+    {
+      "label": "40-50",
+      "n": 8295,
+      "avgForwardReturnPct": 3.361,
+      "winRatePct": 57.3
+    },
+    {
+      "label": "50-58",
+      "n": 5027,
+      "avgForwardReturnPct": 4.071,
+      "winRatePct": 56.9
+    },
+    {
+      "label": "58-72 (Buy)",
+      "n": 11889,
+      "avgForwardReturnPct": 6.537,
+      "winRatePct": 59.2
+    },
+    {
+      "label": "72+ (Strong)",
+      "n": 70527,
+      "avgForwardReturnPct": 5.622,
+      "winRatePct": 59
+    }
+  ],
+  "secondary": {
+    "meanDailyIC": {
+      "estimate": 0.0385,
+      "lo": -0.0392,
+      "hi": 0.11,
+      "se": 0.0383
+    },
+    "topMinusBottomSpreadPct": {
+      "estimate": -0.5176,
+      "lo": -6.7333,
+      "hi": 5.7496,
+      "se": 3.1586
+    },
+    "regime": {
+      "niftyAbove50EMA": {
+        "estimate": -0.0174,
+        "lo": -0.1655,
+        "hi": 0.106,
+        "se": 0.068,
+        "samples": 99988
+      },
+      "niftyBelow50EMA": {
+        "estimate": -0.2248,
+        "lo": -0.3858,
+        "hi": -0.0302,
+        "se": 0.0895,
+        "samples": 45888
+      }
+    },
+    "nonOverlapping": {
+      "offsets": 60,
+      "mean": -0.0925,
+      "min": -0.1577,
+      "max": 0.0047
+    },
+    "inputs": []
+  },
+  "nullCalibration": {
+    "method": "each stock's days shuffled in time (return, open gap and high/low shape kept per day); same engine, rules and statistics",
+    "plan": "docs/research/short-long-remeasurement-plan.md",
+    "runs": [
+      {
+        "seed": 1,
+        "pooledCorrelation": -0.1311,
+        "meanDailyIC": -0.0361,
+        "expectancyR": 0.2019,
+        "profitFactor": 1.3407,
+        "trades": 2325
+      },
+      {
+        "seed": 2,
+        "pooledCorrelation": -0.1606,
+        "meanDailyIC": -0.0485,
+        "expectancyR": 0.2113,
+        "profitFactor": 1.3241,
+        "trades": 2454
+      },
+      {
+        "seed": 3,
+        "pooledCorrelation": -0.1194,
+        "meanDailyIC": -0.0112,
+        "expectancyR": 0.2048,
+        "profitFactor": 1.3381,
+        "trades": 2379
+      }
+    ],
+    "meanPooledCorrelation": -0.137,
+    "meanDailyIC": -0.0319,
+    "realMinusNullPooled": 0.0377
+  },
+  "limits": {
+    "coverage": {
+      "attempted": 165,
+      "studied": 163,
+      "fetchFailed": [
+        "TMCV.NS",
+        "IREDA.NS"
+      ],
+      "tooShort": [],
+      "listedDuringFetch": [
+        {
+          "symbol": "IRFC.NS",
+          "firstBar": "2021-01-29"
+        },
+        {
+          "symbol": "SBILIFE.NS",
+          "firstBar": "2017-10-03"
+        },
+        {
+          "symbol": "HDFCLIFE.NS",
+          "firstBar": "2017-11-17"
+        },
+        {
+          "symbol": "ICICIGI.NS",
+          "firstBar": "2017-09-27"
+        },
+        {
+          "symbol": "POLICYBZR.NS",
+          "firstBar": "2021-11-15"
+        },
+        {
+          "symbol": "ADANIGREEN.NS",
+          "firstBar": "2018-06-18"
+        },
+        {
+          "symbol": "MAXHEALTH.NS",
+          "firstBar": "2020-08-21"
+        },
+        {
+          "symbol": "ETERNAL.NS",
+          "firstBar": "2021-07-23"
+        },
+        {
+          "symbol": "NYKAA.NS",
+          "firstBar": "2021-11-10"
+        },
+        {
+          "symbol": "HAL.NS",
+          "firstBar": "2018-04-02"
+        },
+        {
+          "symbol": "IRCTC.NS",
+          "firstBar": "2019-10-14"
+        },
+        {
+          "symbol": "DALBHARAT.NS",
+          "firstBar": "2018-12-21"
+        },
+        {
+          "symbol": "BANDHANBNK.NS",
+          "firstBar": "2018-03-27"
+        },
+        {
+          "symbol": "IEX.NS",
+          "firstBar": "2017-10-23"
+        },
+        {
+          "symbol": "IRCON.NS",
+          "firstBar": "2018-09-28"
+        },
+        {
+          "symbol": "RVNL.NS",
+          "firstBar": "2019-04-11"
+        },
+        {
+          "symbol": "RITES.NS",
+          "firstBar": "2018-07-03"
+        }
+      ]
+    },
+    "survivorship": {
+      "from": "2019-01-01",
+      "to": "2022-10-04",
+      "stocksWithBothDates": 156,
+      "equalWeightStockReturnPct": 116.1,
+      "medianStockReturnPct": 47.74,
+      "nifty50PriceReturnPct": 59.03,
+      "shareOfStocksBeatingNiftyPct": 44.2
+    },
+    "dataQuality": {
+      "rawRows": 209241,
+      "droppedRows": 0,
+      "keptBars": 209241,
+      "zeroVolumeBars": 46,
+      "duplicateDates": 0,
+      "missingSessions": 0,
+      "extremeMoves": [
+        {
+          "symbol": "SBIN.NS",
+          "date": "2017-10-25",
+          "movePct": 27.7
+        },
+        {
+          "symbol": "AXISBANK.NS",
+          "date": "2020-03-23",
+          "movePct": -27.9
+        },
+        {
+          "symbol": "INDUSINDBK.NS",
+          "date": "2020-03-18",
+          "movePct": -23.7
+        },
+        {
+          "symbol": "INDUSINDBK.NS",
+          "date": "2020-03-23",
+          "movePct": -23.6
+        },
+        {
+          "symbol": "INDUSINDBK.NS",
+          "date": "2020-03-26",
+          "movePct": 44.7
+        },
+        {
+          "symbol": "INDUSINDBK.NS",
+          "date": "2020-04-07",
+          "movePct": 22.6
+        },
+        {
+          "symbol": "BANKBARODA.NS",
+          "date": "2017-10-25",
+          "movePct": 31.4
+        },
+        {
+          "symbol": "PNB.NS",
+          "date": "2017-10-25",
+          "movePct": 46.2
+        },
+        {
+          "symbol": "CANBK.NS",
+          "date": "2017-10-25",
+          "movePct": 38.7
+        },
+        {
+          "symbol": "CANBK.NS",
+          "date": "2020-03-23",
+          "movePct": -20.9
+        },
+        {
+          "symbol": "FEDERALBNK.NS",
+          "date": "2020-03-23",
+          "movePct": -24.2
+        },
+        {
+          "symbol": "BAJFINANCE.NS",
+          "date": "2020-03-23",
+          "movePct": -23.2
+        },
+        {
+          "symbol": "BAJAJFINSV.NS",
+          "date": "2020-03-23",
+          "movePct": -25.9
+        },
+        {
+          "symbol": "CHOLAFIN.NS",
+          "date": "2020-03-23",
+          "movePct": -29.6
+        },
+        {
+          "symbol": "SHRIRAMFIN.NS",
+          "date": "2020-03-23",
+          "movePct": -22.2
+        },
+        {
+          "symbol": "COFORGE.NS",
+          "date": "2020-03-23",
+          "movePct": -24.4
+        },
+        {
+          "symbol": "COFORGE.NS",
+          "date": "2020-03-25",
+          "movePct": 22
+        },
+        {
+          "symbol": "ADANIPOWER.NS",
+          "date": "2018-10-10",
+          "movePct": 25.3
+        },
+        {
+          "symbol": "ADANIPOWER.NS",
+          "date": "2020-03-12",
+          "movePct": -26.5
+        },
+        {
+          "symbol": "SUZLON.NS",
+          "date": "2019-02-05",
+          "movePct": -24.2
+        },
+        {
+          "symbol": "SUZLON.NS",
+          "date": "2019-02-21",
+          "movePct": 20.3
+        },
+        {
+          "symbol": "SUZLON.NS",
+          "date": "2019-02-22",
+          "movePct": 29.2
+        },
+        {
+          "symbol": "SUZLON.NS",
+          "date": "2019-03-05",
+          "movePct": 25.2
+        },
+        {
+          "symbol": "SUZLON.NS",
+          "date": "2019-06-20",
+          "movePct": 22.4
+        },
+        {
+          "symbol": "TMPV.NS",
+          "date": "2021-10-13",
+          "movePct": 20.4
+        },
+        {
+          "symbol": "ASHOKLEY.NS",
+          "date": "2020-03-19",
+          "movePct": -25.2
+        },
+        {
+          "symbol": "ASHOKLEY.NS",
+          "date": "2020-03-26",
+          "movePct": 24.4
+        },
+        {
+          "symbol": "VEDL.NS",
+          "date": "2020-10-12",
+          "movePct": -20.4
+        },
+        {
+          "symbol": "JINDALSTEL.NS",
+          "date": "2020-04-07",
+          "movePct": 28.9
+        },
+        {
+          "symbol": "AUROPHARMA.NS",
+          "date": "2020-02-19",
+          "movePct": 20.3
+        },
+        {
+          "symbol": "GODREJCP.NS",
+          "date": "2021-05-12",
+          "movePct": 21.9
+        },
+        {
+          "symbol": "BHEL.NS",
+          "date": "2019-10-18",
+          "movePct": 21.9
+        },
+        {
+          "symbol": "BHEL.NS",
+          "date": "2020-05-13",
+          "movePct": 23.7
+        },
+        {
+          "symbol": "ADANIENT.NS",
+          "date": "2018-09-06",
+          "movePct": 20.9
+        },
+        {
+          "symbol": "ADANIENT.NS",
+          "date": "2019-05-20",
+          "movePct": 27.4
+        },
+        {
+          "symbol": "ADANIENT.NS",
+          "date": "2020-08-25",
+          "movePct": 23.7
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2019-07-29",
+          "movePct": -27
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2019-10-24",
+          "movePct": -23
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2019-11-14",
+          "movePct": -20.3
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2019-11-15",
+          "movePct": 23.7
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2019-11-18",
+          "movePct": 21.9
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2019-11-19",
+          "movePct": 36
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2020-01-17",
+          "movePct": -25
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2020-01-21",
+          "movePct": 22.7
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2020-02-14",
+          "movePct": -24.4
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2020-02-19",
+          "movePct": 40
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2020-03-09",
+          "movePct": 21.2
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2020-03-13",
+          "movePct": 33.3
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2020-03-18",
+          "movePct": -35.1
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2020-04-13",
+          "movePct": 24.2
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2020-06-05",
+          "movePct": 22.1
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2020-09-03",
+          "movePct": 26.8
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2021-09-16",
+          "movePct": 25.7
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2022-01-11",
+          "movePct": -20.5
+        },
+        {
+          "symbol": "BANDHANBNK.NS",
+          "date": "2020-03-23",
+          "movePct": -25
+        },
+        {
+          "symbol": "BANDHANBNK.NS",
+          "date": "2020-03-26",
+          "movePct": 39.3
+        },
+        {
+          "symbol": "RBLBANK.NS",
+          "date": "2020-03-16",
+          "movePct": -21.2
+        },
+        {
+          "symbol": "RBLBANK.NS",
+          "date": "2022-06-13",
+          "movePct": -22.7
+        },
+        {
+          "symbol": "UNIONBANK.NS",
+          "date": "2017-10-25",
+          "movePct": 34.2
+        },
+        {
+          "symbol": "BANKINDIA.NS",
+          "date": "2017-10-25",
+          "movePct": 34.1
+        },
+        {
+          "symbol": "MANAPPURAM.NS",
+          "date": "2020-03-25",
+          "movePct": 20.9
+        },
+        {
+          "symbol": "MOTHERSON.NS",
+          "date": "2020-03-12",
+          "movePct": -24.3
+        },
+        {
+          "symbol": "MOTHERSON.NS",
+          "date": "2022-01-14",
+          "movePct": 28.6
+        }
+      ],
+      "extremeMoveThresholdPct": 20,
+      "extremeMoveCount": 63
+    }
+  }
+}

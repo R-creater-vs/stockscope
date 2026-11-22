@@ -2,7 +2,7 @@
 
 import type { Verdict } from '@/lib/swing';
 import type { TimeframeAnalysis } from '@/lib/timeframes';
-import { ENGINE_VALIDATION } from '@/lib/validation';
+import { ENGINE_VALIDATION, testedEvidence } from '@/lib/validation';
 
 /** Display descriptions only. API verdicts and score thresholds are unchanged. */
 export const VERDICT_LABEL: Record<Verdict, string> = {
@@ -19,6 +19,11 @@ const COLOR: Record<Verdict, string> = {
 export default function VerdictCard({ tf }: { tf: TimeframeAnalysis }) {
   const color = COLOR[tf.verdict];
   const evidence = ENGINE_VALIDATION[tf.timeframe];
+  // Two windows measured with intervals and a shuffled-price baseline.
+  const tested = testedEvidence(evidence);
+  const a = evidence.inSample;
+  const b = evidence.outOfSample;
+  const periods = tested && a?.samples && b?.samples ? { a, b, aSamples: a.samples, bSamples: b.samples } : null;
   return (
     <section aria-label="Setup assessment" className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
       <div className="p-5 sm:p-6">
@@ -55,14 +60,17 @@ export default function VerdictCard({ tf }: { tf: TimeframeAnalysis }) {
           {evidence.isProxy ? 'Fundamental model not validated' : 'No demonstrated edge'}
         </p>
         <p className="mt-1 text-sm leading-relaxed text-[var(--muted)]">
-          {tf.timeframe === 'short'
-            ? 'The weighted swing score has not demonstrated a stable trading edge. Historical results changed across tested periods. A bullish reading describes this setup; it does not establish a profitable trade.'
-            : evidence.isProxy
-              ? 'Historical testing covers a price-trend proxy only. It does not validate today’s fundamental score.'
+          {evidence.isProxy
+            ? 'Historical testing covers a price-trend proxy only. It does not validate today’s fundamental score.'
+            : tested
+              ? `${tested.lead} Measured ${evidence.measuredOn}. ${tested.sentences.join(' ')} A bullish reading describes the rules, not a return forecast.`
               : 'The stored historical study did not establish a reliable trading edge. A bullish reading is a description of the rules, not a return forecast.'}
         </p>
         <p className="mt-2 text-xs text-[var(--muted)]">
-          Stored study: {evidence.symbols} stocks · {evidence.samples.toLocaleString('en-IN')} signal samples · {evidence.expectancyR.toFixed(3)}R per trade after assumed costs. Full assumptions in Strategy evidence.
+          {periods
+            ? `Stored study: ${evidence.symbols} stocks · ${periods.aSamples.toLocaleString('en-IN')} and ${periods.bSamples.toLocaleString('en-IN')} overlapping daily observations in the two periods · ${periods.b.heldOut ? `plan fixed before the ${periods.b.window} run` : 're-measured with 95% intervals and a shuffled-price baseline'}.`
+            : `Stored study: ${evidence.symbols} stocks · ${evidence.samples.toLocaleString('en-IN')} signal samples · ${evidence.expectancyR.toFixed(3)}R per trade after assumed costs.`}
+          {tf.timeframe === 'mid' ? ' The weeks-to-months evidence below is separate from this score and has not been tested.' : ''} Full assumptions in Strategy evidence.
         </p>
       </div>
     </section>

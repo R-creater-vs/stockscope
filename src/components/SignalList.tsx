@@ -2,6 +2,7 @@
 
 import type { Signal } from '@/lib/swing';
 import type { Timeframe } from '@/lib/timeframes';
+import { MID_INPUTS, MID_SCORE_NOTE } from '@/lib/midRules';
 
 const DIR_COLOR = { bullish: 'var(--bull)', bearish: 'var(--bear)', neutral: 'var(--muted)' } as const;
 const CATEGORY_NOTE: Record<string, string> = {
@@ -30,13 +31,19 @@ const SWING_INPUTS = [
   { name: '20-day range position', category: 'Structure', weight: 10 },
 ] as const;
 
+/** Common shape of the swing and mid input lists; only mid inputs carry a lookback. */
+type InputDef = { name: string; category: string; weight: number; lookback?: string };
+
 export default function SignalList({ signals, score, timeframe }: { signals: Signal[]; score: number; timeframe?: Timeframe }) {
   const totalWeight = signals.reduce((sum, signal) => sum + signal.weight, 0);
   const contribution = (signal: Signal) => totalWeight ? 50 * signal.weight * signal.score / totalWeight : 0;
   const net = signals.reduce((sum, signal) => sum + contribution(signal), 0);
   const isSwing = timeframe ? timeframe === 'short' : signals.some((signal) => signal.name === '20-day range position');
-  const missing = isSwing ? SWING_INPUTS.filter((input) => !signals.some((signal) => signal.name === input.name)) : [];
-  const categories = [...new Set(isSwing ? SWING_INPUTS.map((input) => input.category) : signals.map((signal) => signal.category))];
+  const isMid = timeframe === 'mid';
+  const inputs: readonly InputDef[] = isSwing ? SWING_INPUTS : isMid ? MID_INPUTS : [];
+  const missing = inputs.filter((input) => !signals.some((signal) => signal.name === input.name));
+  const categories = [...new Set(inputs.length ? inputs.map((input) => input.category) : signals.map((signal) => signal.category))];
+  const midRule = (name: string) => (isMid ? MID_INPUTS.find((input) => input.name === name) : undefined);
 
   return (
     <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]" aria-label="Weighted signal evidence">
@@ -47,7 +54,11 @@ export default function SignalList({ signals, score, timeframe }: { signals: Sig
         </div>
         <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">
           Start at 50. Each rule adds or subtracts points based on its direction and weight.
-          {isSwing ? ` ${signals.length} of 8 checks available, grouped into five kinds of evidence.` : ' The selected timeframe uses its own rules.'}
+          {isSwing
+            ? ` ${signals.length} of 8 checks available, grouped into five kinds of evidence.`
+            : isMid
+              ? ` ${signals.length} of ${MID_INPUTS.length} position checks available, grouped into three kinds of evidence. Each check shows its exact rule.`
+              : ' The selected timeframe uses its own rules.'}
         </p>
         <p className="tnum mt-2 text-xs text-[var(--muted)]">Combined contribution: approximately {signed(net)} points. The headline uses the engine&apos;s exact rounded score.</p>
       </header>
@@ -76,9 +87,10 @@ export default function SignalList({ signals, score, timeframe }: { signals: Sig
                       </div>
                     </summary>
                     <p className="px-3 pb-3 text-sm leading-relaxed text-[var(--muted)]">{signal.detail}</p>
+                    {midRule(signal.name) && <p className="px-3 pb-3 text-xs leading-relaxed text-[var(--muted)]"><span className="font-medium text-[var(--foreground)]">Rule: </span>{midRule(signal.name)!.rule} Lookback: {midRule(signal.name)!.lookback}. Input {signal.score >= 0 ? '+' : '−'}{Math.abs(signal.score).toFixed(2)} on the −1 to +1 scale.</p>}
                   </details>
                 </li>)}
-                {missing.filter((input) => input.category === category).map((input) => <li key={input.name} className="flex min-h-14 items-center justify-between gap-3 py-2 text-sm text-[var(--muted)]"><div>{SIGNAL_NAME[input.name] ?? input.name}<p className="mt-1 text-xs">Weight {input.weight} · input unavailable</p></div><span className="text-xs">Excluded</span></li>)}
+                {missing.filter((input) => input.category === category).map((input) => <li key={input.name} className="flex min-h-14 items-center justify-between gap-3 py-2 text-sm text-[var(--muted)]"><div>{SIGNAL_NAME[input.name] ?? input.name}<p className="mt-1 text-xs">Weight {input.weight} · input unavailable{input.lookback ? ` (needs ${input.lookback.toLowerCase()})` : ''}</p></div><span className="text-xs">Excluded</span></li>)}
               </ul>
             </div>;
           })}
@@ -90,6 +102,7 @@ export default function SignalList({ signals, score, timeframe }: { signals: Sig
           Each input is scored from −1 to +1. Contribution = 50 × weight × input score ÷ available weight ({totalWeight}).
           {' '}Score = 50 + all contributions, rounded to one decimal. Missing inputs are excluded and remaining weights are normalised.
           {' '}A neutral direction label can still have a small signed contribution. Displayed contributions are rounded; this score describes rules, not expected returns.
+          {isMid ? ` ${MID_SCORE_NOTE}` : ''}
         </p>
       </details>
     </section>

@@ -26,10 +26,23 @@ const check = (name, ours, theirs, tolPct) => {
   );
 };
 
-// --- SMA vs Yahoo's own published averages (fully independent reference) ----
+// --- Yahoo's published 50/200-day averages: diagnostic only ------------------
+// These lines used to be pass/fail checks, but they never touched the app's
+// code: they compared this script's own naive mean with Yahoo's figure. On
+// 2026-11-22 that figure differed from a plain 200-session mean of Yahoo's own
+// daily closes by 0.2%–1.9% across ten NSE stocks, and neither dividend-adjusted
+// closes nor a stale (lagged 0–40 sessions) window reproduced it. Its method is
+// undocumented, so it cannot serve as an oracle at any fixed tolerance. The
+// numbers are still printed every run; see docs/verification.md.
 const naiveSMA = (arr, p) => arr.slice(-p).reduce((a, b) => a + b, 0) / p;
-check('SMA50 vs Yahoo', naiveSMA(closes, 50), quote.fiftyDayAverage, 0.5);
-check('SMA200 vs Yahoo', naiveSMA(closes, 200), quote.twoHundredDayAverage, 0.5);
+const info = (name, ours, theirs) => {
+  const pct = (Math.abs(ours - theirs) / theirs) * 100;
+  console.log(
+    `INFO  ${name.padEnd(22)} ours=${ours.toFixed(4).padStart(12)}  ref=${theirs.toFixed(4).padStart(12)}  diff=${pct.toFixed(4)}%  (not a gate)`,
+  );
+};
+info('SMA50 vs Yahoo', naiveSMA(closes, 50), quote.fiftyDayAverage);
+info('SMA200 vs Yahoo', naiveSMA(closes, 200), quote.twoHundredDayAverage);
 
 // --- RSI: naive from-scratch Wilder, compared to our library --------------
 function naiveRSI(v, p = 14) {
@@ -71,6 +84,9 @@ const res = await fetch(`http://localhost:3000/api/analyze?q=${SYM}`);
 const api = await res.json();
 const s = api.analysis.snapshot;
 
+// The app's own 200-day SMA (the value the engines use) against a from-scratch
+// mean of the same closes. This is the check that actually tests app code.
+check('SMA200', s.sma200, naiveSMA(closes, 200), 0.001);
 check('RSI14', s.rsi14, naiveRSI(closes), 0.001);
 check('EMA20', s.ema20, naiveEMA(closes, 20), 0.001);
 check('EMA50', s.ema50, naiveEMA(closes, 50), 0.001);
