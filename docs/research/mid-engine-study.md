@@ -49,8 +49,8 @@ flowchart LR
 
 ```bash
 npm test                                                     # 60 tests, incl. the statistics
-node scripts/research/mid-study.mjs --window recent --null 3
-node scripts/research/mid-study.mjs --window 2019-2022 --null 3
+node scripts/research/engine-study.mjs --engine mid --window recent --null 3
+node scripts/research/engine-study.mjs --engine mid --window 2019-2022 --null 3
 ```
 
 The first run of each window downloads bars to `.data/research/` (not committed); later runs reuse them, so the figures are reproducible. `--refresh` downloads again. Each run takes a few minutes and writes `docs/research/results/mid-<window>.json`.

@@ -6,7 +6,7 @@ The frontend has been redesigned as NIVRA. This name is not cleared for adoption
 
 The [search and loading update](docs/search-and-loading.md) simplifies stock lookup, adds elapsed-time/cancel/retry controls, and makes history checks easier to find without blocking other searches.
 
-The [mid-term engine study](docs/research/mid-engine-study.md) tests whether the weeks-to-months score predicts returns, under a [plan fixed in advance](docs/research/mid-engine-preregistration.md): two separate periods, 95% intervals, a shuffled-price baseline, per-input analysis, and measured survivorship and data-quality limits. Result: no demonstrated edge. Reproduce it with `node scripts/research/mid-study.mjs --window recent --null 3` (and `--window 2019-2022`).
+The [mid-term engine study](docs/research/mid-engine-study.md) tests whether the weeks-to-months score predicts returns, under a [plan fixed in advance](docs/research/mid-engine-preregistration.md): two separate periods, 95% intervals, a shuffled-price baseline, per-input analysis, and measured survivorship and data-quality limits. Result: no demonstrated edge. Reproduce it with `node scripts/research/engine-study.mjs --engine mid --window recent --null 3` (and `--window 2019-2022`).
 
 The [weeks-to-months analysis](docs/weeks-to-months.md) adds a descriptive evidence brief to the mid-term (position) view: market and sector trend, relative strength, dated candle and indicator events, fundamentals context, attributed news and position risks, each with its rule and source date. It does not change the mid-term score and has not been historically tested.
 

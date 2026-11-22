@@ -1,20 +1,26 @@
 /**
- * Mid-term engine study: the app's own backtest, plus confidence intervals,
- * per-input analysis and measured data limits.
+ * Engine study: the app's own backtest for one engine, plus confidence
+ * intervals, a shuffled-price baseline, per-input analysis and measured data
+ * limits.
  *
- * The analysis plan was fixed in advance in docs/research/mid-engine-preregistration.md.
- * Engine, trade rules and pooled metrics come from the app's source
- * (src/lib/backtest.ts, src/lib/midterm.ts), loaded directly, and the script
- * checks that its own samples reproduce the app's pooled correlation exactly.
+ * Methods were fixed in advance in docs/research/mid-engine-preregistration.md
+ * (mid engine) and extended to the short engine and the long-term proxy in
+ * docs/research/short-long-remeasurement-plan.md. Engines, trade rules and
+ * pooled metrics come from the app's source (src/lib/backtest.ts and the engine
+ * files), loaded directly, and the script checks that its own samples
+ * reproduce the app's pooled correlation exactly.
  *
- * Usage (no dev server needed; network access to Yahoo is):
- *   node scripts/research/mid-study.mjs --window recent
- *   node scripts/research/mid-study.mjs --window 2019-2022
- * Options: --refresh (refetch instead of using .data/research/ cache), --reps N.
- * Writes docs/research/results/mid-<window>.json and prints a summary.
+ * Usage (no dev server needed; network access to Yahoo is, on the first run):
+ *   node scripts/research/engine-study.mjs --engine mid --window recent --null 3
+ *   node scripts/research/engine-study.mjs --engine short --window 2019-2022 --null 3
+ * Options: --engine short|mid|long (default mid), --window recent|2019-2022,
+ * --null N (shuffled-price runs, seeds 1..N), --reps N (bootstrap replicates),
+ * --refresh (refetch instead of using the .data/research/ cache).
+ * Writes docs/research/results/<engine>-<window>.json and prints a summary.
  */
 import fs from 'node:fs';
 import path from 'node:path';
+import { execSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { loadTs, ROOT } from '../load-ts.mjs';
@@ -46,18 +52,73 @@ const W = WINDOWS[option('window', 'recent')];
 if (!W) throw new Error(`--window must be one of: ${Object.keys(WINDOWS).join(', ')}`);
 
 const REPS = Number(option('reps', 2000));
-const BLOCK = 40; // sessions: twice the 20-session horizon
 const SEED = 20261122;
 const MIN_STOCKS_PER_DATE = 10;
 const EXTREME_MOVE = 0.2;
 
-const { backtestSymbol, aggregate, ENGINE_CONFIGS } = loadTs('src/lib/backtest');
+const { backtestSymbol, aggregate, ENGINE_CONFIGS, longTrendStrategy } = loadTs('src/lib/backtest');
 const { analyzeMidTerm } = loadTs('src/lib/midterm');
+const { analyzeSwing } = loadTs('src/lib/swing');
 const { scoreSignals } = loadTs('src/lib/timeframes');
 const { UNIVERSE, MARKET_INDEX } = loadTs('src/lib/universe');
 const { ema } = loadTs('src/lib/indicators');
-const config = ENGINE_CONFIGS.mid;
+
+/** The swing engine's score from its inputs, with the same operations as analyzeSwing(). */
+function swingScore(signals) {
+  const total = signals.reduce((s, x) => s + x.weight, 0);
+  const raw = signals.reduce((s, x) => s + x.weight * ((x.score + 1) / 2), 0);
+  const score = total === 0 ? 50 : (raw / total) * 100;
+  return Math.round(score * 10) / 10;
+}
+const keep = (signals) => signals.map((x) => ({ name: x.name, score: x.score, weight: x.weight }));
+
+/**
+ * Each engine's decision exactly as STRATEGIES in src/lib/backtest.ts builds it,
+ * plus its inputs where it has separate ones, and the function that turns
+ * inputs back into its score (for the drop-one ablation).
+ */
+const ENGINES = {
+  short: {
+    label: 'Short-term (swing) engine',
+    source: 'src/lib/swing.ts',
+    scorer: swingScore,
+    run: (bars) => {
+      const a = analyzeSwing(bars);
+      return { score: a.score, verdict: a.verdict, stop: a.plan?.stopLoss ?? null, target: a.plan?.target1 ?? null, signals: keep(a.signals) };
+    },
+  },
+  mid: {
+    label: 'Mid-term engine',
+    source: 'src/lib/midterm.ts',
+    scorer: scoreSignals,
+    run: (bars) => {
+      const tf = analyzeMidTerm(bars);
+      return { score: tf.score, verdict: tf.verdict, stop: tf.tradePlan?.stopLoss ?? null, target: tf.tradePlan?.target1 ?? null, signals: keep(tf.signals) };
+    },
+  },
+  long: {
+    label: 'Long-term price-trend proxy',
+    source: 'longTrendStrategy in src/lib/backtest.ts',
+    scorer: null,
+    run: (bars) => ({ ...longTrendStrategy(bars), signals: null }),
+  },
+};
+const ENGINE = option('engine', 'mid');
+const E = ENGINES[ENGINE];
+if (!E) throw new Error(`--engine must be one of: ${Object.keys(ENGINES).join(', ')}`);
+const config = ENGINE_CONFIGS[ENGINE];
 const H = config.signalHorizon;
+const BLOCK = 2 * H; // sessions: twice the forward horizon
+const decision = (d) => ({ score: d.score, verdict: d.verdict, stop: d.stop, target: d.target });
+const codeVersion = (() => {
+  try {
+    const head = execSync('git rev-parse --short HEAD', { cwd: ROOT }).toString().trim();
+    const dirty = execSync('git status --porcelain -- src scripts', { cwd: ROOT }).toString().trim() ? ' (with uncommitted changes)' : '';
+    return head + dirty;
+  } catch {
+    return 'unknown';
+  }
+})();
 
 /* ------------------------------------------------------------------- data */
 
@@ -177,12 +238,12 @@ for (const u of UNIVERSE) {
   if (bars.length < config.warmup + 30) { coverage.tooShort.push(u.symbol); continue; }
 
   // One engine pass per stock, through the app's own replay. The wrapper returns
-  // the same Decision as midStrategy and records each day's seven inputs.
+  // the same Decision as the app's strategy and records each day's inputs.
   const captured = new Map();
   const strategy = (slice) => {
-    const tf = analyzeMidTerm(slice);
-    captured.set(slice.length - 1, { score: tf.score, signals: tf.signals.map((x) => ({ name: x.name, score: x.score, weight: x.weight })) });
-    return { score: tf.score, verdict: tf.verdict, stop: tf.tradePlan?.stopLoss ?? null, target: tf.tradePlan?.target1 ?? null };
+    const d = E.run(slice);
+    captured.set(slice.length - 1, { score: d.score, signals: d.signals });
+    return decision(d);
   };
   const bt = backtestSymbol(u.symbol, bars, config, regime, strategy, W.window ?? undefined);
   results.push(bt);
@@ -191,7 +252,7 @@ for (const u of UNIVERSE) {
 
   for (const [i, c] of captured) {
     if (i >= bars.length - H) continue; // same sample rule as replayBacktest()
-    inputNames ??= c.signals.map((x) => x.name);
+    if (c.signals) inputNames ??= c.signals.map((x) => x.name);
     samples.push({
       s,
       date: bars[i].date,
@@ -220,10 +281,12 @@ const score = Float64Array.from(samples, (x) => x.score);
 const regimeOn = Uint8Array.from(samples, (x) => (x.regimeOn === true ? 1 : 0));
 const regimeKnown = Uint8Array.from(samples, (x) => (x.regimeOn === undefined ? 0 : 1));
 
-// Sanity: the engine's reported score must equal scoreSignals() of its inputs,
-// and our samples must reproduce the app's pooled correlation.
-for (const x of samples) {
-  if (Math.abs(scoreSignals(x.signals) - x.score) > 1e-9) throw new Error(`score mismatch for sample on ${x.date}`);
+// Sanity: the engine's reported score must equal its scorer applied to its
+// inputs, and our samples must reproduce the app's pooled correlation.
+if (E.scorer) {
+  for (const x of samples) {
+    if (Math.abs(E.scorer(x.signals) - x.score) > 1e-9) throw new Error(`score mismatch for sample on ${x.date}`);
+  }
 }
 const ones = new Float64Array(N).fill(1);
 const ourPooled = S.pooledCorrelation(sym, score, y, ones, nSym);
@@ -232,8 +295,9 @@ if (Math.abs(ourPooled - app.signal.correlation) > 1e-9) {
 }
 
 // Per-input value (NaN when the engine excluded it) and drop-one score.
+inputNames ??= [];
 const inputValue = inputNames.map((name) => Float64Array.from(samples, (x) => x.signals.find((g) => g.name === name)?.score ?? NaN));
-const dropOne = inputNames.map((name) => Float64Array.from(samples, (x) => scoreSignals(x.signals.filter((g) => g.name !== name))));
+const dropOne = inputNames.map((name) => Float64Array.from(samples, (x) => E.scorer(x.signals.filter((g) => g.name !== name))));
 const inputCoverage = inputValue.map((arr) => arr.filter(Number.isFinite).length / N);
 
 // Per-date groups for the cross-sectional statistics.
@@ -333,7 +397,7 @@ const tradeRandom = S.rng(SEED + 1);
 const tradeReps = Array.from({ length: REPS }, () => tradeStats(S.iidCounts(months.length, tradeRandom)));
 const tradeCI = (k) => S.interval(tradeReps.map((x) => x[k]));
 
-// Non-overlapping check: every 20th trading date, for each of the 20 offsets.
+// Non-overlapping check: every H-th trading date, for each of the H offsets.
 const nonOverlapping = Array.from({ length: H }, (_, k) =>
   S.pooledCorrelation(sym, score, y, Float64Array.from(dIdx, (d) => (d % H === k ? 1 : 0)), nSym));
 
@@ -364,9 +428,9 @@ for (let seed = 1; seed <= NULL_REPS; seed++) {
     const bars = S.shuffleDays(data.series[symbol].bars, random);
     const scores = new Map();
     const strategy = (slice) => {
-      const tf = analyzeMidTerm(slice);
-      scores.set(slice.length - 1, tf.score);
-      return { score: tf.score, verdict: tf.verdict, stop: tf.tradePlan?.stopLoss ?? null, target: tf.tradePlan?.target1 ?? null };
+      const d = E.run(slice);
+      scores.set(slice.length - 1, d.score);
+      return decision(d);
     };
     res.push(backtestSymbol(symbol, bars, config, undefined, strategy, W.window ?? undefined));
     for (const [i, sc] of scores) {
@@ -412,11 +476,15 @@ const sortedReturns = [...stockReturns].sort((p, q) => p - q);
 const round = (x, d = 4) => (Number.isFinite(x) ? +x.toFixed(d) : null);
 const withCI = (est, ci) => ({ estimate: round(est), lo: round(ci.lo), hi: round(ci.hi), se: round(ci.se) });
 
+const PLAN = ENGINE === 'mid' ? 'docs/research/mid-engine-preregistration.md' : 'docs/research/short-long-remeasurement-plan.md';
 const out = {
+  engine: ENGINE,
+  engineLabel: E.label,
+  engineSource: E.source,
   window: W.label,
   windowKey: W.key,
-  plan: 'docs/research/mid-engine-preregistration.md',
-  engineCommit: '1b26836',
+  plan: PLAN,
+  codeVersion,
   dataFetchedAt: data.fetchedAt,
   fetchSpan: W.span,
   decisionWindow: { from: firstDate, to: lastDate, tradingDates: D },
@@ -459,7 +527,7 @@ const out = {
   nullCalibration: nullRuns.length
     ? {
         method: 'each stock\'s days shuffled in time (return, open gap and high/low shape kept per day); same engine, rules and statistics',
-        amendment: 'docs/research/mid-engine-preregistration.md#amendment-1-22-november-2026-after-the-recent-window-run-before-the-20192022-run',
+        plan: ENGINE === 'mid' ? `${PLAN}#amendment-1-22-november-2026-after-the-recent-window-run-before-the-20192022-run` : PLAN,
         runs: nullRuns.map((x) => ({ seed: x.seed, pooledCorrelation: round(x.pooledCorrelation), meanDailyIC: round(x.meanDailyIC), expectancyR: round(x.expectancyR), profitFactor: round(x.profitFactor), trades: x.trades })),
         meanPooledCorrelation: round(S.mean(nullRuns.map((x) => x.pooledCorrelation))),
         meanDailyIC: round(S.mean(nullRuns.map((x) => x.meanDailyIC))),
@@ -493,13 +561,13 @@ const out = {
 
 const outDir = path.join(ROOT, 'docs', 'research', 'results');
 fs.mkdirSync(outDir, { recursive: true });
-const outFile = path.join(outDir, `mid-${W.key}.json`);
+const outFile = path.join(outDir, `${ENGINE}-${W.key}.json`);
 fs.writeFileSync(outFile, `${JSON.stringify(out, null, 2)}\n`);
 
 /* ---------------------------------------------------------------- summary */
 
 const fmt = (o, d = 4) => `${o.estimate?.toFixed(d)}  [95% CI ${o.lo?.toFixed(d)} to ${o.hi?.toFixed(d)}]`;
-console.log(`\n=== MID-TERM ENGINE · ${W.label} · decisions ${firstDate} → ${lastDate} ===`);
+console.log(`\n=== ${E.label.toUpperCase()} · ${W.label} · ${H}-session horizon · decisions ${firstDate} → ${lastDate} ===`);
 console.log(`stocks ${nSym}/${coverage.attempted}  samples ${N.toLocaleString('en-IN')}  trades ${app.trade.trades}`);
 console.log(`pooled correlation  ${fmt(out.primary.pooledCorrelation)}   (app: ${app.signal.correlation.toFixed(4)})`);
 console.log(`net expectancy (R)  ${fmt(out.primary.expectancyR, 3)}`);

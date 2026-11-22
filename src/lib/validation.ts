@@ -88,7 +88,7 @@ export const ENGINE_VALIDATION: Record<Timeframe, ValidationRecord> = {
   },
   // Re-measured on 2026-11-22 under a pre-registered plan, with a held-out
   // 2019–2022 window, 95% intervals and a shuffled-price baseline. Produced by
-  // scripts/research/mid-study.mjs; see docs/research/mid-engine-study.md.
+  // scripts/research/engine-study.mjs --engine mid; see docs/research/mid-engine-study.md.
   // The top-level figures repeat the recent (primary) window.
   mid: {
     correlation: -0.1993,
