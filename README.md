@@ -293,7 +293,7 @@ has the full table. In brief:
 | --- | --- | --- | --- | --- |
 | Short (10 sessions) | −0.073 / +0.012 | −0.034 / −0.024 | −0.015 / −0.017 | No demonstrated edge |
 | Mid (20 sessions) | −0.199 / −0.049 | −0.124 / −0.066 | −0.008 / +0.001 | No demonstrated edge |
-| Long-term price proxy (60 sessions) | −0.293 / −0.099 | −0.253 / −0.137 | +0.018 / +0.039 | No demonstrated edge |
+| Long-term price proxy (60 sessions) | −0.293 / −0.099 | −0.253 / −0.137 | +0.018 / +0.038 | No demonstrated edge |
 
 The app's correlation is computed within each stock's own history, which reads negative even
 when prices are shuffled and nothing is predictable. Most of the earlier "inverted" readings

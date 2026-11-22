@@ -37,7 +37,7 @@ Square brackets are 95% intervals. "Shuffled" is the same measure after each sto
 | Mid | Oct 2024 – Oct 2026 | 83,652 | −0.199 [−0.291, −0.135] | −0.124 | −0.075 | −0.008 [−0.065, +0.050] | −0.034 | 2,046 | −0.136R [−0.299, +0.020] | 0.79 [0.57, 1.09] | −10.7% vs +1.1% | No |
 | Mid | 2019 – Dec 2022 | 152,859 | −0.049 [−0.141, +0.025] | −0.066 | +0.017 | +0.001 [−0.043, +0.045] | −0.011 | 4,231 | +0.119R [+0.007, +0.227] | 1.37 [1.05, 1.77] | +51.1% vs +121.4% | No |
 | Long proxy | Oct 2024 – Aug 2026 | 77,068 | −0.293 [−0.437, −0.196] | −0.253 | −0.040 | +0.018 [−0.099, +0.132] | −0.072 | 1,252 | −0.176R [−0.448, +0.121] | 0.77 [0.46, 1.24] | −9.7% vs +1.1% | No |
-| Long proxy | 2019 – Oct 2022 | 146,339 | −0.099 [−0.253, +0.008] | −0.137 | +0.038 | +0.039 [−0.039, +0.110] | −0.032 | 2,357 | +0.276R [+0.087, +0.455] | 1.60 [1.21, 2.08] | +76.3% vs +121.4% | No |
+| Long proxy | 2019 – Oct 2022 | 146,339 | −0.099 [−0.253, +0.008] | −0.137 | +0.038 | +0.038 [−0.039, +0.110] | −0.032 | 2,357 | +0.276R [+0.087, +0.455] | 1.60 [1.21, 2.08] | +76.3% vs +121.4% | No |
 
 The recent windows end on different dates because each engine needs its own number of sessions of future prices after the last decision. Every 2019–2022 window starts on 2019-01-01 and covers 163 of the 165 stocks. Six-figure counts use international grouping here; the app shows Indian grouping.
 
