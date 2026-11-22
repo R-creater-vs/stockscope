@@ -3,6 +3,8 @@
 NIVRA remains a **provisional** name (see [brand.md](brand.md)). This document explains what the app analyses for a stock held for **weeks to months**, the exact rules behind every reading, where the data comes from, and what has and has not been tested. Written 22 November 2026 alongside the code change it describes.
 
 > **Status in one line:** the mid-term score has **no demonstrated stable edge**. The weeks-to-months evidence added here is descriptive, sits beside that score, and has **not** been historically tested. Nothing in this change was validated, and no test or verification script was run while making it.
+>
+> **Update, 22 November 2026:** the score itself was re-tested under a pre-registered plan, on a recent period and a held-out 2019–2022 period, with 95% intervals and a shuffled-price baseline. Result: no demonstrated edge in either period, and most of the earlier negative correlation turned out to come from the measuring method. See [the study](research/mid-engine-study.md). The candle and indicator rules described below now have 42 rule tests (`npm test`); those tests check that the rules behave as written, not that they predict anything.
 
 ## 1. Which engine is "weeks to months"
 
@@ -183,6 +185,19 @@ YouTube and trader interviews were not used as evidence. Success stories are sub
 
 Mid engine: 132 stocks, 67,832 overlapping daily observations, 20-session horizon, correlation −0.1469, net expectancy −0.034R per trade, profit factor 0.97; lowest score bucket +0.754% versus highest −0.075% average forward return. Conclusion: **no demonstrated stable edge**. The negative association does not validate an inverse strategy. Only one window is stored for this engine.
 
+### Re-measured 22 November 2026 (supersedes the record above in the app)
+
+A [pre-registered study](research/mid-engine-study.md) re-ran the same rules on two non-overlapping periods with 95% block-bootstrap intervals:
+
+| | Oct 2024 – Oct 2026 | 2019–2022 (held out) |
+| --- | ---: | ---: |
+| Correlation (app's measure) | −0.199 [−0.291, −0.135] | −0.049 [−0.141, +0.025] |
+| Same measure on shuffled prices | −0.124 | −0.066 |
+| Daily rank correlation across stocks | −0.008 [−0.065, +0.050] | +0.001 [−0.043, +0.045] |
+| Net expectancy per trade | −0.136R [−0.299, +0.020] | +0.119R [+0.007, +0.227] |
+
+Conclusion unchanged: **no demonstrated edge**. What changed is the explanation of the negative correlation. A within-stock correlation of a trend score reads negative even on shuffled, unpredictable prices, so the earlier "higher scores were followed by lower returns" was mostly a property of the measure. The app now shows both periods, the intervals and the shuffled-price baseline (`src/lib/validation.ts`).
+
 ### Discrepancies found while auditing (documented, records unchanged)
 
 1. **"3 years" vs about two years.** The default study fetches three years but spends the first 210 sessions on indicator warm-up. The sample counts confirm it: 67,832 ÷ 132 ≈ 514 per stock ≈ (about 744 sessions − 210 warm-up − 20 horizon). An unused helper said "3 years"; it and the UI now say "about two years of decisions". The short engine's stored "2023–2026" label describes the fetched span; its decisions began roughly ten months later. The label itself is preserved, with an explanatory caption.
@@ -197,7 +212,9 @@ Universe: the app's current liquid NSE list with at least 240 sessions. Decision
 
 ### What testing the new evidence honestly would require
 
-The current simulator replays one stock at a time on today's universe, so it cannot test a cross-sectional idea such as "stocks ahead of their sector" without survivorship bias. A sound test would need: a point-in-time universe including delisted names; total-return benchmarks; pre-registered rules with separate development, validation and untouched holdout periods; a record of every variant tried (multiple-testing / backtest-overfitting risk); ablations showing whether each group adds anything beyond the existing score; cost and parameter sensitivity; and regime and non-overlapping-window breakdowns. None of that was run. If it is, failed results should be published alongside successes, as the existing short-engine record already does.
+The current simulator replays one stock at a time on today's universe, so it cannot test a cross-sectional idea such as "stocks ahead of their sector" without survivorship bias. A sound test would need: a point-in-time universe including delisted names; total-return benchmarks; pre-registered rules with separate development, validation and untouched holdout periods; a record of every variant tried (multiple-testing / backtest-overfitting risk); ablations showing whether each group adds anything beyond the existing score; cost and parameter sensitivity; and regime and non-overlapping-window breakdowns. None of that was run for the evidence brief. If it is, failed results should be published alongside successes, as the existing short-engine record already does.
+
+For the mid-term **score** (not the evidence brief), the 22 November 2026 study did cover pre-registration, a held-out period, per-input ablations, regime and non-overlapping breakdowns, and a measured (not corrected) survivorship gap. It still lacks a point-in-time universe, total-return data, and cost and parameter sensitivity.
 
 ## 9. Explaining it simply
 

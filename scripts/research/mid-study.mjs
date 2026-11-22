@@ -388,13 +388,21 @@ for (let seed = 1; seed <= NULL_REPS; seed++) {
 
 const firstDate = calendar[0];
 const lastDate = calendar.at(-1);
-const closeOn = (bars, date) => bars.find((b) => b.date === date)?.close;
-const niftyReturn = (closeOn(nifty.bars, lastDate) / closeOn(nifty.bars, firstDate) - 1) * 100;
+/** Close of the last bar on or before `date`; undefined if the series starts later (not yet listed). */
+const closeAsOf = (bars, date) => {
+  let close;
+  for (const b of bars) {
+    if (b.date > date) break;
+    close = b.close;
+  }
+  return close;
+};
+const niftyReturn = (closeAsOf(nifty.bars, lastDate) / closeAsOf(nifty.bars, firstDate) - 1) * 100;
 const stockReturns = [];
 for (const symbol of symbolsStudied) {
   const bars = data.series[symbol].bars;
-  const a = closeOn(bars, firstDate);
-  const b = closeOn(bars, lastDate);
+  const a = closeAsOf(bars, firstDate);
+  const b = closeAsOf(bars, lastDate);
   if (a && b) stockReturns.push((b / a - 1) * 100);
 }
 const sortedReturns = [...stockReturns].sort((p, q) => p - q);
@@ -423,6 +431,8 @@ const out = {
     samples: N,
     stocks: nSym,
     avgBuyHoldPct: round(app.trade.avgBuyHoldPct, 2),
+    /** Each stock's trades compounded one position at a time, averaged across stocks (same window as buy-and-hold). */
+    avgStrategyReturnPct: round(app.trade.avgSymbolTotalReturnPct, 2),
     regimeFiltered: (() => {
       const f = results.filter((r) => r.filtered).map((r) => ({ ...r, trades: r.filtered.trades, stats: r.filtered.stats }));
       const agg = f.length ? aggregate(f) : null;
@@ -494,6 +504,7 @@ console.log(`stocks ${nSym}/${coverage.attempted}  samples ${N.toLocaleString('e
 console.log(`pooled correlation  ${fmt(out.primary.pooledCorrelation)}   (app: ${app.signal.correlation.toFixed(4)})`);
 console.log(`net expectancy (R)  ${fmt(out.primary.expectancyR, 3)}`);
 console.log(`profit factor       ${fmt(out.primary.profitFactor, 2)}`);
+console.log(`per stock          strategy ${out.primary.avgStrategyReturnPct}% vs buy-and-hold ${out.primary.avgBuyHoldPct}% (average across stocks)`);
 console.log(`mean daily IC       ${fmt(out.secondary.meanDailyIC)}`);
 console.log(`72+ minus <40 (%)   ${fmt(out.secondary.topMinusBottomSpreadPct, 3)}`);
 console.log(`regime on / off     ${out.secondary.regime.niftyAbove50EMA.estimate} / ${out.secondary.regime.niftyBelow50EMA.estimate}`);
