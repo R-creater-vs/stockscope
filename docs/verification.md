@@ -4,6 +4,8 @@ The later [search and loading verification](search-and-loading.md) covers the si
 
 The final frontend build, lint, typecheck, frozen math regression and browser suite passed. **The live external-reference indicator suite remains failing on one SMA200 comparison.** This report does not establish complete WCAG conformance, production performance, a profitable strategy or name clearance.
 
+> **Update, 22 November 2026:** the SMA200 failure was investigated. The failing comparison never exercised app code, and Yahoo's published average could not be reproduced from Yahoo's own closes. The check now tests the app's SMA200 directly and passes; the Yahoo comparison is still printed as a diagnostic. See [the follow-up](#follow-up-22-november-2026). The record below is unchanged.
+
 See the [repository audit](audit.md), [design system](design-system.md), [brand record](brand.md) and [six-view screenshot gallery](screenshots.md).
 
 ## Final checks
@@ -93,6 +95,27 @@ The final [live verification](../scripts/verify-indicators.mjs) produced this TC
 This check failed. The other ten checks passed: SMA50, RSI14, EMA20, EMA50, ATR14, risk/reward arithmetic, stop below price, first target above price, second target above first, and score reproduction.
 
 The discrepancy's cause is unresolved. Different observation timing or reference construction are possibilities, not verified explanations. Neither scoring math nor tolerance was changed to conceal the failure. Investigate synchronized inputs and Yahoo's reference methodology before reporting the independent indicator suite as fully passing.
+
+#### Follow-up, 22 November 2026
+
+**What the check actually compared.** Both "vs Yahoo" lines in `scripts/verify-indicators.mjs` compared the script's *own* naive mean of the fetched closes with Yahoo's published `fiftyDayAverage` / `twoHundredDayAverage`. The app's `sma()` was never called, so the failure said nothing about app code either way.
+
+**Can Yahoo's figure be reproduced from Yahoo's own closes?** Tested on ten NSE stocks with the latest bar 2026-11-20 (market closed):
+
+| Hypothesis | Result |
+| --- | --- |
+| Plain mean of the last 200 closes | Off by 0.20%–1.91% (TCS 1.66%, INFY 1.91%, HDFCBANK 1.39%) |
+| Same, excluding the latest bar | Off by a similar amount (TCS 1.83%) |
+| Mean of dividend/split-adjusted closes | Still off (TCS 0.33%, INFY −1.23%, HDFCBANK 0.58%) |
+| Yahoo's figure is stale by *k* sessions (one lag shared by the 50- and 200-day averages, *k* = 0–40) | Rejected: the best shared lag was 0, leaving 1.16% average error per stock |
+
+A search over window lengths found a best fit near 187 sessions for several stocks, but with 440 candidate windows per stock a close fit is expected by chance, so it is not treated as an explanation. Yahoo does not document how these fields are calculated. The SMA50 comparison also differed by 0.55% for TCS on this run, so it would have failed the old 0.5% tolerance too; its earlier passes were not evidence of agreement.
+
+**Change made.** A new gated check compares the app's own SMA200 (`analysis.snapshot.sma200` from `/api/analyze`, the value the engines use) with a from-scratch mean of the same closes, at the 0.001% tolerance the RSI, EMA and ATR checks already use. The Yahoo comparisons are still printed on every run, marked `INFO … (not a gate)`, with the numbers visible. No tolerance was widened and no scoring math changed.
+
+**Result after the change** (`npm run verify`, TCS, 22 Nov 2026): 11 of 11 gated checks passed, including SMA200 with a difference of 0.0000%. Diagnostics: SMA50 vs Yahoo 0.55%, SMA200 vs Yahoo 1.66%.
+
+**What this does not establish.** It shows the app computes a 200-session simple mean correctly. It does not show that Yahoo's bars are correct; that would need a second data source such as exchange bhavcopy files, which the app does not use.
 
 ## Persistence and integration limits
 

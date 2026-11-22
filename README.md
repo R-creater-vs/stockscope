@@ -34,6 +34,7 @@ Other scripts:
 | `npm run build:termux` | Android/Termux production build using Webpack because Turbopack native bindings are unavailable there |
 | `npm run typecheck` | TypeScript, no emit |
 | `npm run lint` | ESLint |
+| `npm test` | Rule tests for the candle-pattern, indicator-event, bar-completion and sector-benchmark logic (synthetic fixtures; no server or network) |
 | `npm run verify` | Validates the indicator math against independent references (**dev server must be running**) |
 | `npm run verify:math` | Checks frozen pre-redesign numerical regression cases; no running server or market network request needed |
 | `npm run verify:ui` | Runs Chrome/CDP layout, accessibility and interaction checks against a local server with an **isolated verification database** |
