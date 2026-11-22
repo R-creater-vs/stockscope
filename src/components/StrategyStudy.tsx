@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { AggregateStudy, Engine } from '@/lib/backtest';
-import { ENGINE_VALIDATION } from '@/lib/validation';
+import { ENGINE_VALIDATION, testedEvidence, type WindowResult } from '@/lib/validation';
 import SignalBuckets from './SignalBuckets';
 
 interface StudyResp {
@@ -88,27 +88,29 @@ export default function StrategyStudy() {
 
 const signed = (n: number, d: number) => `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(d)}`;
 const interval = (ci: [number, number] | undefined, d: number) => (ci ? `${signed(ci[0], d)} to ${signed(ci[1], d)}` : '—');
+/** "Held out" only for a window never run for this engine before its plan was fixed. */
+const periodLabel = (window: WindowResult, index: number) => (index === 0 ? 'Recent' : window.heldOut ? 'Held out' : 'Earlier period, re-measured');
 
 function RecordedEvidence({ engine }: { engine: Engine }) {
   const evidence = ENGINE_VALIDATION[engine];
   const windows = evidence.inSample && evidence.outOfSample ? [evidence.inSample, evidence.outOfSample] : null;
-  // Windows measured with 95% intervals and a shuffled-price baseline (the mid engine's pre-registered study).
-  const tested = windows?.every((w) => w.correlationCI && w.expectancyCI && w.nullCorrelation !== undefined) ?? false;
+  // Windows measured with 95% intervals and a shuffled-price baseline (docs/research/).
+  const summary = testedEvidence(evidence);
+  const tested = summary !== null;
   return <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]" aria-label="Recorded strategy validation">
     <div className="border-b border-[var(--border)] px-5 py-5 sm:px-6">
       <p className="text-xs uppercase tracking-[0.14em] text-[var(--muted)]">Recorded study · measured {evidence.measuredOn}</p>
       <h2 className="mt-2 text-2xl font-semibold tracking-tight text-[var(--warn)]">{evidence.isProxy ? 'Fundamental model remains unvalidated.' : 'No demonstrated edge.'}</h2>
       <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[var(--muted)]">
-        {engine === 'short' ? 'The existing weighted swing score has not demonstrated a stable trading edge. The relationship between score and subsequent returns changed sign across the two recorded periods. Neither a bullish reading nor an inverted score establishes a profitable strategy.' :
-          evidence.isProxy ? 'Only a historical price-trend proxy was tested. Today’s fundamental inputs cannot be replayed honestly without historical, point-in-time fundamentals. These results do not validate the fundamental score.' :
-            tested ? 'Tested on two separate periods under a plan fixed in advance. Neither showed an edge. The score’s correlation with later returns was close to what shuffled, unpredictable prices produce on the same measure, and on any given day it did not rank which stocks later did better. A negative historical association does not establish a profitable inverse strategy.' :
-              'In the stored study, higher scores did not correspond to higher subsequent returns. A negative historical association does not establish a profitable inverse strategy.'}
+        {evidence.isProxy ? `Only a historical price-trend proxy was tested. Today’s fundamental inputs cannot be replayed honestly without historical, point-in-time fundamentals. These results do not validate the fundamental score.${summary ? ` For the proxy itself: ${summary.lead.charAt(0).toLowerCase()}${summary.lead.slice(1)}` : ''}` :
+          summary ? `${summary.lead} ${summary.sentences.slice(0, 2).join(' ')}${windows?.some((w) => w.correlation < 0) ? ' A negative historical association does not establish a profitable inverse strategy.' : ''}` :
+            'In the stored study, higher scores did not correspond to higher subsequent returns. A negative historical association does not establish a profitable inverse strategy.'}
       </p>
     </div>
     <div className="grid grid-cols-2 gap-px bg-[var(--border)] sm:grid-cols-4">
       <Cell label={tested ? 'Signal observations · recent' : 'Signal observations'} value={evidence.samples.toLocaleString('en-IN')} />
       <Cell label="Stocks tested" value={String(evidence.symbols)} />
-      <Cell label={tested ? 'Net expectancy · recent' : 'Net expectancy / trade'} value={`${evidence.expectancyR.toFixed(3)}R`} color="var(--bear)" />
+      <Cell label={tested ? 'Net expectancy · recent' : 'Net expectancy / trade'} value={`${evidence.expectancyR.toFixed(3)}R`} color={evidence.expectancyR < 0 ? 'var(--bear)' : undefined} />
       <Cell label={tested ? 'Profit factor · recent' : 'Profit factor'} value={evidence.profitFactor.toFixed(2)} />
     </div>
     <div className="space-y-4 px-5 py-5 sm:px-6">
@@ -128,10 +130,10 @@ function RecordedEvidence({ engine }: { engine: Engine }) {
           </tr>)}</tbody>
         </table>
       </div>}
-      {windows && tested && <p className="text-xs leading-relaxed text-[var(--muted)]">Two non-overlapping windows. Ranges are 95% intervals from a block bootstrap that allows for overlapping forward windows and for stocks moving together. &ldquo;Shuffled prices&rdquo; is the same correlation measured after each stock&apos;s days were shuffled in time, so nothing could be predicted: it shows what this measure reads with no skill at all. &ldquo;Same-day ranking&rdquo; is the average daily rank correlation across stocks. The {windows[1].window} window was fixed in advance and had not been run for this engine before.</p>}
+      {windows && tested && <p className="text-xs leading-relaxed text-[var(--muted)]">Two non-overlapping windows. Ranges are 95% intervals from a block bootstrap that allows for overlapping forward windows and for stocks moving together. &ldquo;Shuffled prices&rdquo; is the same correlation measured after each stock&apos;s days were shuffled in time, so nothing could be predicted: it shows what this measure reads with no skill at all. &ldquo;Same-day ranking&rdquo; is the average daily rank correlation across stocks. {windows[1].heldOut ? `The ${windows[1].window} window was fixed in advance and had not been run for this engine before.` : `Both windows had been examined before with the old measure alone, so this is a re-measurement, not a held-out test.`}</p>}
       {windows && tested && <div className="space-y-3 sm:hidden">
         {windows.map((window, index) => <div key={window.window} className="rounded-lg border border-[var(--border)] px-4 py-4">
-          <p className="text-sm font-medium text-[var(--foreground)]">{window.window}<span className="mt-1 block text-xs font-normal text-[var(--muted)]">{index === 0 ? 'Recent' : 'Held out'}{window.trades ? ` · ${window.trades.toLocaleString('en-IN')} trades` : ''}</span></p>
+          <p className="text-sm font-medium text-[var(--foreground)]">{window.window}<span className="mt-1 block text-xs font-normal text-[var(--muted)]">{periodLabel(window, index)}{window.trades ? ` · ${window.trades.toLocaleString('en-IN')} trades` : ''}</span></p>
           <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
             <WindowFigure label="Correlation" value={signed(window.correlation, 3)} range={interval(window.correlationCI, 3)} />
             <WindowFigure label="Shuffled prices" value={signed(window.nullCorrelation ?? 0, 3)} />
@@ -151,7 +153,7 @@ function RecordedEvidence({ engine }: { engine: Engine }) {
             <th className="py-3 pl-2 text-right font-medium">Net R / trade<span className="block font-normal">95% range</span></th>
           </tr></thead>
           <tbody>{windows.map((window, index) => <tr key={window.window} className="border-b border-[var(--border)] align-top">
-            <th className="py-3 pr-3 font-normal">{window.window}<span className="mt-1 block text-xs text-[var(--muted)]">{index === 0 ? 'Recent' : 'Held out'}{window.trades ? ` · ${window.trades.toLocaleString('en-IN')} trades` : ''}</span></th>
+            <th className="py-3 pr-3 font-normal">{window.window}<span className="mt-1 block text-xs text-[var(--muted)]">{periodLabel(window, index)}{window.trades ? ` · ${window.trades.toLocaleString('en-IN')} trades` : ''}</span></th>
             <td className="tnum px-2 py-3 text-right">{signed(window.correlation, 3)}<span className="block text-xs text-[var(--muted)]">{interval(window.correlationCI, 3)}</span></td>
             <td className="tnum px-2 py-3 text-right">{signed(window.nullCorrelation ?? 0, 3)}</td>
             <td className="tnum px-2 py-3 text-right">{window.meanDailyIC !== undefined ? signed(window.meanDailyIC, 3) : '—'}<span className="block text-xs text-[var(--muted)]">{interval(window.meanDailyICCI, 3)}</span></td>

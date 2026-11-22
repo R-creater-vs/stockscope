@@ -86,7 +86,7 @@ Shuffling each stock's days in time measures how strong this effect is. It keeps
 
 Measured against this baseline, the real data did slightly worse than chance in the recent period (−0.075) and slightly better in 2019–2022 (+0.017). Those differences point in opposite directions and are small next to the intervals. The earlier record's conclusion, "higher scores were followed by lower returns", was literally true of the sample. It is not evidence that the score predicts lower returns.
 
-The daily rank correlation (IC) avoids the problem entirely. It compares stocks with each other on the same day instead of a stock with its own history, and it was close to zero in both periods.
+The daily rank correlation (IC) is much less exposed to the problem, because it compares stocks with each other on the same day instead of a stock with its own history. It is not fully immune: each shuffled stock still ends where it ends, so the IC on shuffled prices read −0.034 and −0.011, against −0.124 and −0.066 for the app's measure. The real IC was −0.008 and +0.001, and both intervals include zero and the shuffled value. On either reference point, the score did not rank stocks.
 
 ### Score buckets (average 20-session forward price change)
 
