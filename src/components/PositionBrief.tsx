@@ -555,11 +555,41 @@ function RiskSection({ position }: { position: PositionEvidence }) {
 function ValidationSection({ position, mid }: { position: PositionEvidence; mid: TimeframeAnalysis }) {
   const v = ENGINE_VALIDATION.mid;
   const sign = (n: number, d: number) => `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(d)}`;
+  const a = v.inSample;
+  const b = v.outOfSample;
+  const range = (ci: [number, number] | undefined, d: number) => (ci ? ` (95% interval ${sign(ci[0], d)} to ${sign(ci[1], d)})` : '');
+  const twoPeriods = a?.nullCorrelation !== undefined && b?.nullCorrelation !== undefined ? { a, b, aNull: a.nullCorrelation, bNull: b.nullCorrelation } : null;
   return (
     <div className="space-y-3 px-5 py-4 text-sm leading-relaxed text-[var(--muted)]">
       <p>
         <strong className="text-[var(--foreground)]">Stored record, measured {v.measuredOn}.</strong> This page does not re-run it. The current mid-term score is {mid.score}/100 ({mid.verdictLabel.toLowerCase()}).
       </p>
+      {twoPeriods ? (
+        <ul className="space-y-2">
+          <Bullet
+            color="var(--muted)"
+            text={`Two separate periods: ${twoPeriods.a.window} and ${twoPeriods.b.window}. The analysis plan and decision rule were committed before the ${twoPeriods.b.window} run, which had never been tested for this engine.`}
+          />
+          <Bullet
+            color="var(--muted)"
+            text={`Signal study: the score against the ${v.horizonDays}-session forward price change. Correlation ${sign(twoPeriods.a.correlation, 3)}${range(twoPeriods.a.correlationCI, 3)} and ${sign(twoPeriods.b.correlation, 3)}${range(twoPeriods.b.correlationCI, 3)}, as the sample-weighted average of per-stock correlations. On shuffled prices, where nothing is predictable, the same measure reads ${sign(twoPeriods.aNull, 3)} and ${sign(twoPeriods.bNull, 3)}.`}
+          />
+          <Bullet
+            color="var(--muted)"
+            text={`Ranking across stocks: on each day, the score's rank correlation with later returns averaged ${sign(twoPeriods.a.meanDailyIC ?? 0, 3)}${range(twoPeriods.a.meanDailyICCI, 3)} and ${sign(twoPeriods.b.meanDailyIC ?? 0, 3)}${range(twoPeriods.b.meanDailyICCI, 3)}${
+              [twoPeriods.a, twoPeriods.b].every((w) => w.meanDailyICCI && w.meanDailyICCI[0] <= 0 && w.meanDailyICCI[1] >= 0) ? '; both intervals include zero' : ''
+            }.`}
+          />
+          <Bullet
+            color="var(--muted)"
+            text={`Trade simulation: entry at the next session's open when the score is 58 or higher, exit at the model stop, the first target or after ${position.horizon.maxHoldSessions} sessions, ${position.horizon.costPct}% round-trip cost. Net expectancy ${sign(twoPeriods.a.expectancyR, 3)}R${range(twoPeriods.a.expectancyCI, 3)} and ${sign(twoPeriods.b.expectancyR, 3)}R${range(twoPeriods.b.expectancyCI, 3)}. Average buy-and-hold over the same periods: ${sign(twoPeriods.a.buyHoldPct, 0)}% and ${sign(twoPeriods.b.buyHoldPct, 0)}% per stock.`}
+          />
+          <Bullet
+            color="var(--warn)"
+            text="Conclusion: no demonstrated edge in either period. Most of the negative correlation also appears on shuffled prices, so it reflects the measure rather than the market, and it does not support an inverse strategy."
+          />
+        </ul>
+      ) : (
       <ul className="space-y-2">
         <Bullet
           color="var(--muted)"
@@ -578,6 +608,7 @@ function ValidationSection({ position, mid }: { position: PositionEvidence; mid:
           text="Conclusion: no demonstrated stable edge. Higher scores were followed by lower average returns in this sample; that does not validate an inverse strategy."
         />
       </ul>
+      )}
       <div>
         <p className="font-semibold text-[var(--foreground)]">Not tested</p>
         <ul className="mt-2 space-y-1.5">

@@ -18,6 +18,23 @@ export interface WindowResult {
   correlation: number;
   expectancyR: number;
   buyHoldPct: number;
+  /** First and last decision dates, when they were recorded. */
+  from?: string;
+  to?: string;
+  samples?: number;
+  trades?: number;
+  /** 95% block-bootstrap interval for `correlation` (docs/research/mid-engine-study.md). */
+  correlationCI?: [number, number];
+  /** 95% interval for `expectancyR`, resampling calendar months of entry. */
+  expectancyCI?: [number, number];
+  /** Mean daily Spearman correlation between score and forward return across stocks. */
+  meanDailyIC?: number;
+  meanDailyICCI?: [number, number];
+  /**
+   * `correlation` measured the same way on each stock's days shuffled in time
+   * (mean of three shuffles): what the metric reads when nothing is predictable.
+   */
+  nullCorrelation?: number;
 }
 
 export interface ValidationRecord {
@@ -47,6 +64,10 @@ export interface ValidationRecord {
    */
   inSample?: WindowResult;
   outOfSample?: WindowResult;
+  /** The study document behind this record, when there is one. */
+  study?: string;
+  /** An earlier measurement this record replaces, kept so the history stays visible. */
+  previous?: { measuredOn: string; correlation: number; expectancyR: number; profitFactor: number; samples: number; symbols: number };
 }
 
 export const ENGINE_VALIDATION: Record<Timeframe, ValidationRecord> = {
@@ -65,16 +86,38 @@ export const ENGINE_VALIDATION: Record<Timeframe, ValidationRecord> = {
     inSample: { window: '2023–2026', correlation: -0.0717, expectancyR: -0.021, buyHoldPct: 12.2 },
     outOfSample: { window: '2019–2022', correlation: 0.0261, expectancyR: 0.059, buyHoldPct: 116.8 },
   },
+  // Re-measured on 2026-11-22 under a pre-registered plan, with a held-out
+  // 2019–2022 window, 95% intervals and a shuffled-price baseline. Produced by
+  // scripts/research/mid-study.mjs; see docs/research/mid-engine-study.md.
+  // The top-level figures repeat the recent (primary) window.
   mid: {
-    correlation: -0.1469,
-    expectancyR: -0.034,
-    profitFactor: 0.97,
-    samples: 67832,
-    symbols: 132,
+    correlation: -0.1993,
+    expectancyR: -0.136,
+    profitFactor: 0.79,
+    samples: 83652,
+    symbols: 165,
     horizonDays: 20,
-    measuredOn: '2026-07-24',
-    lowBucketReturn: 0.754,
-    highBucketReturn: -0.075,
+    measuredOn: '2026-11-22',
+    lowBucketReturn: 0.66,
+    highBucketReturn: -0.328,
+    inSample: {
+      window: 'Oct 2024 – Oct 2026', from: '2024-10-01', to: '2026-10-22',
+      correlation: -0.1993, correlationCI: [-0.2913, -0.1349],
+      expectancyR: -0.136, expectancyCI: [-0.299, 0.02],
+      meanDailyIC: -0.0084, meanDailyICCI: [-0.0648, 0.0497],
+      nullCorrelation: -0.1242,
+      buyHoldPct: 1.1, samples: 83652, trades: 2046,
+    },
+    outOfSample: {
+      window: '2019–2022', from: '2019-01-01', to: '2022-12-02',
+      correlation: -0.049, correlationCI: [-0.141, 0.0247],
+      expectancyR: 0.119, expectancyCI: [0.007, 0.227],
+      meanDailyIC: 0.0007, meanDailyICCI: [-0.0429, 0.0446],
+      nullCorrelation: -0.0663,
+      buyHoldPct: 121.4, samples: 152859, trades: 4231,
+    },
+    study: 'docs/research/mid-engine-study.md',
+    previous: { measuredOn: '2026-07-24', correlation: -0.1469, expectancyR: -0.034, profitFactor: 0.97, samples: 67832, symbols: 132 },
   },
   long: {
     correlation: -0.3459,
@@ -92,7 +135,26 @@ export const ENGINE_VALIDATION: Record<Timeframe, ValidationRecord> = {
 
 export type ValidationStatus = 'validated' | 'no-edge' | 'inverted' | 'regime-dependent';
 
+/** The windows of a record that carry intervals and a shuffled-price baseline. */
+function testedWindows(v: ValidationRecord): Required<Pick<WindowResult, 'correlation' | 'correlationCI' | 'expectancyR' | 'expectancyCI' | 'nullCorrelation'>>[] | null {
+  const windows = [v.inSample, v.outOfSample];
+  if (!windows.every((w) => w?.correlationCI && w.expectancyCI && w.nullCorrelation !== undefined)) return null;
+  return windows as Required<WindowResult>[];
+}
+
 export function validationStatus(v: ValidationRecord): ValidationStatus {
+  // Records with intervals and a shuffled-price baseline (docs/research/
+  // mid-engine-preregistration.md) are judged on uncertainty, in every window.
+  const tested = testedWindows(v);
+  if (tested) {
+    // The pre-registered rule: both intervals above zero and both estimates
+    // above the thresholds used below, in every window.
+    if (tested.every((w) => w.correlationCI[0] > 0 && w.correlation > 0.05 && w.expectancyCI[0] > 0 && w.expectancyR > 0.03)) return 'validated';
+    // "Inverted" only if every window sits wholly below what shuffled,
+    // unpredictable prices produce on the same measure.
+    if (tested.every((w) => w.correlationCI[1] < w.nullCorrelation)) return 'inverted';
+    return 'no-edge';
+  }
   // Two windows whose edge disagrees in sign = no stable edge. This wins over
   // any single-window reading, because a signal that only works in one regime is
   // not a signal you can trade forward.
@@ -111,6 +173,22 @@ export function validationNote(tf: Timeframe): { status: ValidationStatus; text:
   // The default study fetches three years of bars and spends the first 210
   // sessions on indicator warm-up, so decisions cover about the latest two years.
   const scope = `${v.symbols} stocks, ${v.samples.toLocaleString('en-IN')} samples, about two years of decisions, net of costs`;
+
+  if (testedWindows(v) && v.inSample && v.outOfSample) {
+    const a = v.inSample;
+    const b = v.outOfSample;
+    const r = (n: number) => `${n >= 0 ? '+' : '−'}${Math.abs(n).toFixed(2)}`;
+    const lead =
+      status === 'validated'
+        ? 'Validated in both of two separate periods.'
+        : status === 'inverted'
+          ? 'Not validated: in both periods the score did worse than shuffled, unpredictable prices on the same measure. That does not establish a profitable inverse strategy.'
+          : 'Not validated: no demonstrated edge in either of two separate periods.';
+    return {
+      status,
+      text: `${lead} Score / ${v.horizonDays}-day return correlation was ${r(a.correlation)} (${a.window}) and ${r(b.correlation)} (${b.window}); shuffled prices read ${r(a.nullCorrelation!)} and ${r(b.nullCorrelation!)}. Trades averaged ${r(a.expectancyR)}R and ${r(b.expectancyR)}R per trade after costs. Treat the score as a description, not a buy signal.`,
+    };
+  }
 
   if (status === 'regime-dependent' && v.inSample && v.outOfSample) {
     return {
