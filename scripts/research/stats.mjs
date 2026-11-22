@@ -84,6 +84,34 @@ export function iidCounts(n, random) {
   return counts;
 }
 
+/**
+ * Null-model price path: a stock's days shuffled in time. Each day keeps its
+ * close-to-close return, its open relative to the previous close and its
+ * high/low relative to its close, so volatility, drift and candle shapes
+ * survive and any predictability from the order of days does not. Dates stay
+ * in their original order, so date-based windows are unchanged.
+ */
+export function shuffleDays(bars, random) {
+  const days = [];
+  for (let t = 1; t < bars.length; t++) {
+    const prev = bars[t - 1].close;
+    const b = bars[t];
+    days.push({ r: b.close / prev, o: b.open / prev, h: b.high / b.close, l: b.low / b.close, v: b.volume });
+  }
+  for (let i = days.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [days[i], days[j]] = [days[j], days[i]];
+  }
+  const out = [bars[0]];
+  for (let t = 1; t < bars.length; t++) {
+    const prev = out[t - 1].close;
+    const k = days[t - 1];
+    const close = prev * k.r;
+    out.push({ date: bars[t].date, open: prev * k.o, high: close * k.h, low: close * k.l, close, volume: k.v });
+  }
+  return out;
+}
+
 /** Percentile interval and standard error from bootstrap replicates. */
 export function interval(replicates, alpha = 0.05) {
   const finite = replicates.filter(Number.isFinite).sort((a, b) => a - b);

@@ -337,6 +337,53 @@ const tradeCI = (k) => S.interval(tradeReps.map((x) => x[k]));
 const nonOverlapping = Array.from({ length: H }, (_, k) =>
   S.pooledCorrelation(sym, score, y, Float64Array.from(dIdx, (d) => (d % H === k ? 1 : 0)), nSym));
 
+/* ------------------------------------------------- null calibration (amend. 1) */
+
+function meanDailyICOf(list) {
+  const groups = new Map();
+  for (const x of list) {
+    const g = groups.get(x.date) ?? [];
+    g.push(x);
+    groups.set(x.date, g);
+  }
+  const ics = [];
+  for (const g of groups.values()) {
+    if (g.length >= MIN_STOCKS_PER_DATE) ics.push(S.spearman(g.map((x) => x.score), g.map((x) => x.y)));
+  }
+  return S.mean(ics);
+}
+
+const NULL_REPS = Number(option('null', 0));
+const nullRuns = [];
+for (let seed = 1; seed <= NULL_REPS; seed++) {
+  console.log(`Null calibration ${seed}/${NULL_REPS}: shuffling each stock's days and re-running the engine…`);
+  const random = S.rng(seed);
+  const res = [];
+  const list = [];
+  symbolsStudied.forEach((symbol, s) => {
+    const bars = S.shuffleDays(data.series[symbol].bars, random);
+    const scores = new Map();
+    const strategy = (slice) => {
+      const tf = analyzeMidTerm(slice);
+      scores.set(slice.length - 1, tf.score);
+      return { score: tf.score, verdict: tf.verdict, stop: tf.tradePlan?.stopLoss ?? null, target: tf.tradePlan?.target1 ?? null };
+    };
+    res.push(backtestSymbol(symbol, bars, config, undefined, strategy, W.window ?? undefined));
+    for (const [i, sc] of scores) {
+      if (i < bars.length - H) list.push({ s, date: bars[i].date, score: sc, y: ((bars[i + H].close - bars[i].close) / bars[i].close) * 100 });
+    }
+  });
+  const agg = aggregate(res);
+  nullRuns.push({
+    seed,
+    pooledCorrelation: agg.signal.correlation,
+    meanDailyIC: meanDailyICOf(list),
+    expectancyR: agg.trade.expectancyR,
+    profitFactor: agg.trade.profitFactor,
+    trades: agg.trade.trades,
+  });
+}
+
 /* -------------------------------------------------------- survivorship proxy */
 
 const firstDate = calendar[0];
@@ -399,6 +446,16 @@ const out = {
       dropOneDelta: withCI(point.dropDelta[k], ciOf((r) => r.dropDelta[k])),
     })),
   },
+  nullCalibration: nullRuns.length
+    ? {
+        method: 'each stock\'s days shuffled in time (return, open gap and high/low shape kept per day); same engine, rules and statistics',
+        amendment: 'docs/research/mid-engine-preregistration.md#amendment-1-22-november-2026-after-the-recent-window-run-before-the-20192022-run',
+        runs: nullRuns.map((x) => ({ seed: x.seed, pooledCorrelation: round(x.pooledCorrelation), meanDailyIC: round(x.meanDailyIC), expectancyR: round(x.expectancyR), profitFactor: round(x.profitFactor), trades: x.trades })),
+        meanPooledCorrelation: round(S.mean(nullRuns.map((x) => x.pooledCorrelation))),
+        meanDailyIC: round(S.mean(nullRuns.map((x) => x.meanDailyIC))),
+        realMinusNullPooled: round(point.pooled - S.mean(nullRuns.map((x) => x.pooledCorrelation))),
+      }
+    : null,
   limits: {
     coverage: {
       attempted: coverage.attempted,
@@ -442,6 +499,11 @@ console.log(`72+ minus <40 (%)   ${fmt(out.secondary.topMinusBottomSpreadPct, 3)
 console.log(`regime on / off     ${out.secondary.regime.niftyAbove50EMA.estimate} / ${out.secondary.regime.niftyBelow50EMA.estimate}`);
 console.log(`non-overlapping     mean ${out.secondary.nonOverlapping.mean}  range ${out.secondary.nonOverlapping.min} to ${out.secondary.nonOverlapping.max}`);
 for (const inp of out.secondary.inputs) console.log(`  ${inp.name.padEnd(28)} IC ${fmt(inp.meanDailyIC)}   drop-one Δ ${fmt(inp.dropOneDelta)}`);
+if (out.nullCalibration) {
+  const nc = out.nullCalibration;
+  console.log(`null calibration    pooled ${nc.runs.map((x) => x.pooledCorrelation).join(', ')} (mean ${nc.meanPooledCorrelation})  IC mean ${nc.meanDailyIC}  → real minus null pooled ${nc.realMinusNullPooled}`);
+  console.log(`                    null expectancy ${nc.runs.map((x) => x.expectancyR).join(', ')} R`);
+}
 const sv = out.limits.survivorship;
 console.log(`survivorship proxy  stocks EW ${sv.equalWeightStockReturnPct}% (median ${sv.medianStockReturnPct}%) vs Nifty 50 ${sv.nifty50PriceReturnPct}%`);
 console.log(`data quality        dropped rows ${quality.droppedRows}/${quality.rawRows}, zero-volume ${quality.zeroVolumeBars}, >20% moves ${quality.extremeMoves.length}, missing sessions ${quality.missingSessions}, duplicates ${quality.duplicateDates}`);

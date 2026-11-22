@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  circularBlockCounts, iidCounts, interval, pearson, pooledCorrelation, quantile, ranks, rng, spearman,
+  circularBlockCounts, iidCounts, interval, pearson, pooledCorrelation, quantile, ranks, rng, shuffleDays, spearman,
 } from '../scripts/research/stats.mjs';
 import { loadTs } from '../scripts/load-ts.mjs';
 import { advance, decline } from './helpers.mjs';
@@ -54,6 +54,19 @@ test('circularBlockCounts: fills exactly n positions in whole blocks that wrap',
 
 test('iidCounts: n draws in total', () => {
   assert.equal(iidCounts(50, rng(3)).reduce((s, x) => s + x, 0), 50);
+});
+
+test('shuffleDays: same dates, valid bars, same daily returns in a different order', () => {
+  const src = [...decline(40, 300), ...advance(40, 222, 40)].map((b, i) => ({ ...b, volume: 1000 + i }));
+  const out = shuffleDays(src, rng(5));
+  assert.deepEqual(out.map((b) => b.date), src.map((b) => b.date));
+  for (const b of out) {
+    assert.ok(b.high >= Math.max(b.open, b.close) - 1e-9 && b.low <= Math.min(b.open, b.close) + 1e-9, `invalid bar on ${b.date}`);
+  }
+  const returns = (bars) => bars.slice(1).map((b, i) => +(b.close / bars[i].close).toFixed(12)).sort();
+  assert.deepEqual(returns(out), returns(src), 'the multiset of daily returns is preserved');
+  assert.notDeepEqual(out.map((b) => b.close), src.map((b) => b.close), 'the order changed');
+  assert.deepEqual(shuffleDays(src, rng(5)), out, 'reproducible from the seed');
 });
 
 test('interval: percentile bounds and standard error', () => {

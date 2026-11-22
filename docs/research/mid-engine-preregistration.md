@@ -64,3 +64,15 @@ Seven inputs × two windows × several statistics is a large number of compariso
 ## What happens with the result
 
 The results and this plan are published together in `docs/research/mid-engine-study.md`, including any result that is unfavourable. The 2019–2022 figures are added to the mid engine's record in `src/lib/validation.ts` next to the recent window, using the definitions above. The earlier record (measured 2026-07-24) stays documented.
+
+## Amendments
+
+### Amendment 1: 22 November 2026, after the recent-window run, before the 2019–2022 run
+
+**What was seen.** In the recent window the pooled correlation was −0.199 (95% CI −0.291 to −0.135), while the mean daily cross-sectional IC was −0.008 (95% CI −0.065 to 0.050).
+
+**Why that matters.** The pooled correlation is computed *within* each stock's own history, against that stock's own sample mean. For a score built from past price trends, such within-sample correlations can be negative even when prices are unpredictable: if a stock's path over the sample has a fixed start and end, a strong past rise leaves less room for a later rise. If this bias is large, part or all of the "inverted" result is a property of the metric, not of the market.
+
+**Added analysis: null calibration.** For each stock, the daily bars are shuffled in time with a seeded generator. Each day keeps its own close-to-close return, its open relative to the previous close, and its high and low relative to its close, but the order of days is randomised. This keeps each stock's volatility, drift and candle shapes and removes any predictability. The same engine, trade rules and statistics are run on the shuffled data. Three shuffles per window, seeds 1, 2 and 3. The pooled correlation and mean daily IC on real data are then compared with their values under this null.
+
+**What does not change.** H1, the primary statistics, the windows, the bootstrap and the decision rule above are unchanged. The null calibration is reported beside them and is used only to interpret the size and sign of the pooled correlation.
