@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { analyzeSwing } from '@/lib/swing';
 import { analyzeAllTimeframes } from '@/lib/multiTimeframe';
 import { buildNarrative } from '@/lib/narrative';
-import { fetchBars, fetchCompany, resolveSymbol } from '@/lib/providers';
+import { fetchBars, fetchCompany, fetchReportedResults, resolveSymbol } from '@/lib/providers';
 import { ProviderTimeoutError, withDeadline } from '@/lib/providerRequest';
+import { benchmarkBars, prefetchBenchmark, type BenchmarkResult } from '@/lib/benchmarks';
+import { BROAD_BENCHMARK, chooseSectorBenchmark } from '@/lib/sectorBenchmarks';
+import { buildPositionEvidence, type PositionEvidence } from '@/lib/positionEvidence';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -51,6 +54,12 @@ export async function GET(req: NextRequest) {
         (company) => ({ company, error: undefined }),
         (error: unknown) => ({ company: undefined, error }),
       );
+      // Weeks-to-months context runs alongside the required work. Each part is
+      // optional, has its own short deadline and never fails the report.
+      const resultsTask = fetchReportedResults(match.symbol, options).catch(() => null);
+      const niftyTask = benchmarkBars(BROAD_BENCHMARK.symbol, signal);
+      const earlySector = chooseSectorBenchmark({ symbol: match.symbol, sector: null, industry: null });
+      if (earlySector.index) prefetchBenchmark(earlySector.index.symbol);
       const { bars, symbol, switchedFrom } = await fetchBars(match.symbol, 2, options);
 
       if (bars.length < 60) {
@@ -96,6 +105,43 @@ export async function GET(req: NextRequest) {
         );
       }
 
+      // Descriptive evidence for the weeks-to-months horizon. It sits beside the
+      // mid-term score and never changes it.
+      const sectorChoice = chooseSectorBenchmark({
+        symbol,
+        sector: company.profile.sector,
+        industry: company.profile.industry,
+      });
+      const [nifty, sectorSeries, results] = await Promise.all([
+        niftyTask,
+        sectorChoice.index ? benchmarkBars(sectorChoice.index.symbol, signal) : Promise.resolve<BenchmarkResult | null>(null),
+        switchedFrom ? fetchReportedResults(symbol, options).catch(() => null) : resultsTask,
+      ]);
+      signal.throwIfAborted();
+      let position: PositionEvidence | null = null;
+      try {
+        position = buildPositionEvidence({
+          name: company.profile.name,
+          bars,
+          company,
+          mid: timeframes.mid,
+          benchmark: {
+            index: BROAD_BENCHMARK,
+            bars: nifty.status === 'available' ? nifty.bars : null,
+            reason: nifty.status === 'unavailable' ? nifty.reason : null,
+          },
+          sector: {
+            choice: sectorChoice,
+            bars: sectorSeries?.status === 'available' ? sectorSeries.bars : null,
+            reason: sectorSeries?.status === 'unavailable' ? sectorSeries.reason : null,
+          },
+          results,
+          computedAt: new Date().toISOString(),
+        });
+      } catch (error) {
+        console.error('position evidence failed', error);
+      }
+
       // The initial report is always ready as soon as its computed data is ready.
       // Local-model prose is optional, explicit, and never required for a report.
       const narrative = await buildNarrative(company, analysis, { allowAI: useAI, signal });
@@ -108,6 +154,7 @@ export async function GET(req: NextRequest) {
         company,
         analysis,
         timeframes,
+        position,
         narrative,
         // Only the last year goes to the client — keeps the payload light and the
         // chart readable. All indicators were computed on the full 2-year series.

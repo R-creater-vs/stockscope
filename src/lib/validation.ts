@@ -21,7 +21,12 @@ export interface WindowResult {
 }
 
 export interface ValidationRecord {
-  /** Pearson correlation of score with forward return. >0 predictive, <0 inverted. */
+  /**
+   * Score vs forward-return correlation as the study computes it: the
+   * sample-weighted average of each stock's own Pearson correlation
+   * (`pooledCorrelation` in backtest.ts), not one correlation over all pooled
+   * observations. >0 means higher scores preceded higher returns.
+   */
   correlation: number;
   /** Net expectancy per trade, in units of risk. */
   expectancyR: number;
@@ -103,7 +108,9 @@ export function validationStatus(v: ValidationRecord): ValidationStatus {
 export function validationNote(tf: Timeframe): { status: ValidationStatus; text: string } {
   const v = ENGINE_VALIDATION[tf];
   const status = validationStatus(v);
-  const scope = `${v.symbols} stocks, ${v.samples.toLocaleString('en-IN')} samples, 3 years, net of costs`;
+  // The default study fetches three years of bars and spends the first 210
+  // sessions on indicator warm-up, so decisions cover about the latest two years.
+  const scope = `${v.symbols} stocks, ${v.samples.toLocaleString('en-IN')} samples, about two years of decisions, net of costs`;
 
   if (status === 'regime-dependent' && v.inSample && v.outOfSample) {
     return {

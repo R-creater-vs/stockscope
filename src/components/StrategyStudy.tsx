@@ -112,7 +112,7 @@ function RecordedEvidence({ engine }: { engine: Engine }) {
       </p>
       {evidence.inSample && evidence.outOfSample && <div className="overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <caption className="mb-2 text-left text-xs text-[var(--muted)]">Two recorded, non-overlapping windows. Their labels are preserved from the stored evidence.</caption>
+          <caption className="mb-2 text-left text-xs text-[var(--muted)]">Two recorded, non-overlapping windows. Their labels are preserved from the stored evidence. The primary window comes from the default run, whose first 210 sessions were indicator warm-up, so its decisions began roughly ten months after the labelled start.</caption>
           <thead className="text-xs text-[var(--muted)]"><tr className="border-b border-[var(--border)]"><th className="py-3 pr-3 font-medium">Window</th><th className="px-2 py-3 text-right font-medium">Correlation</th><th className="py-3 pl-2 text-right font-medium">Net R / trade</th></tr></thead>
           <tbody>{[evidence.inSample, evidence.outOfSample].map((window, index) => <tr key={window.window} className="border-b border-[var(--border)]">
             <th className="py-3 pr-3 font-normal">{window.window}<span className="mt-1 block text-xs text-[var(--muted)]">{index === 0 ? 'Primary window' : 'Earlier comparison'}</span></th>
@@ -125,9 +125,27 @@ function RecordedEvidence({ engine }: { engine: Engine }) {
         <p><strong className="text-[var(--foreground)]">Read the sample correctly.</strong> Signal observations are daily measurements, not independent trades. Nearby forward-return windows overlap. The stored record does not include a trade count, uncertainty intervals or the full per-stock output.</p>
         <p className="mt-2">Assumed round-trip trading cost: 0.2%. Entries at the next open; stop, target and time exits follow each engine. R is a multiple of initial trade risk. Signal-bucket returns are price changes; trading expectancy includes the cost assumption.</p>
         <p className="mt-2">The selected current universe can introduce survivorship bias. These historical comparisons do not establish future performance or validate an inverse strategy. The earlier comparison is not a prospective, untouched test.</p>
+        <p className="mt-2">Correlation here is the sample-weighted average of each stock&apos;s own score/return correlation, not one correlation over all pooled observations.</p>
       </div>
+      {engine === 'mid' && <MidHypothesis />}
     </div>
   </section>;
+}
+
+/** The weeks-to-months (mid) study written down as a hypothesis, exactly as the code implements it. */
+function MidHypothesis() {
+  return <div className="rounded-lg border border-[var(--border)] px-4 py-4 text-sm leading-relaxed text-[var(--muted)]">
+    <p className="font-semibold text-[var(--foreground)]">The tested weeks-to-months hypothesis, as implemented</p>
+    <ul className="mt-2 list-disc space-y-1 pl-5">
+      <li>Universe: the app&apos;s current list of liquid NSE stocks with at least 240 sessions of history. Because it is today&apos;s list, companies delisted earlier are absent.</li>
+      <li>Decision: each session&apos;s close, using only bars up to that close.</li>
+      <li>Entry: the next session&apos;s open when the mid-term score is 58 or higher and the model stop and target are valid; one position per stock at a time.</li>
+      <li>Exit: the model stop (an opening gap through it fills at the open), the first target, or after 40 sessions. If one bar touches both levels, the stop is assumed first. Assumed round-trip cost 0.2%.</li>
+      <li>Signal study: the score against the 20-session forward price change on every decision day, so neighbouring observations overlap.</li>
+      <li>Window: a three-year fetch whose first 210 sessions are indicator warm-up, so decisions span roughly the latest two years before the measurement date.</li>
+    </ul>
+    <p className="mt-2">Not tested: holds longer than 40 sessions, other forward horizons, the weeks-to-months evidence shown in stock reports, fundamentals or news (no point-in-time history), delisted companies, total-return benchmarks, liquidity limits or a capital-constrained portfolio. A run of the study below re-measures the same rules on newer data; it does not test new ones.</p>
+  </div>;
 }
 
 function Results({ data }: { data: StudyResp }) {
@@ -136,7 +154,7 @@ function Results({ data }: { data: StudyResp }) {
     <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
       <p className="text-xs uppercase tracking-[0.14em] text-[var(--muted)]">Available run · {new Date(data.generatedAt).toLocaleString('en-IN')}</p>
       <h2 className="mt-2 text-xl font-semibold">A historical result, not a validated edge.</h2>
-      <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">Across {study.symbolsTested} stocks and {study.signal.samples.toLocaleString('en-IN')} signal observations, score / {study.signal.horizon}-day forward-return correlation was {study.signal.correlation.toFixed(3)}. Net expectancy was {study.trade.expectancyR.toFixed(3)}R across {study.trade.trades.toLocaleString('en-IN')} simulated trades. A single run cannot establish stable predictive power.</p>
+      <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">Across {study.symbolsTested} stocks and {study.signal.samples.toLocaleString('en-IN')} signal observations, score / {study.signal.horizon}-day forward-return correlation was {study.signal.correlation.toFixed(3)} (sample-weighted average of per-stock correlations). Net expectancy was {study.trade.expectancyR.toFixed(3)}R across {study.trade.trades.toLocaleString('en-IN')} simulated trades. A single run cannot establish stable predictive power.</p>
       {data.isProxy && <p className="mt-3 text-sm text-[var(--warn)]">Price-trend proxy only. This run does not test the fundamental model.</p>}
     </section>
     <Stats title="All qualifying historical signals" study={study} />

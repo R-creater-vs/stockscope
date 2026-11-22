@@ -6,6 +6,8 @@ The frontend has been redesigned as NIVRA. This name is not cleared for adoption
 
 The [search and loading update](docs/search-and-loading.md) simplifies stock lookup, adds elapsed-time/cancel/retry controls, and makes history checks easier to find without blocking other searches.
 
+The [weeks-to-months analysis](docs/weeks-to-months.md) adds a descriptive evidence brief to the mid-term (position) view: market and sector trend, relative strength, dated candle and indicator events, fundamentals context, attributed news and position risks, each with its rule and source date. It does not change the mid-term score and has not been historically tested.
+
 A research and decision-support app for Indian stocks. Search NSE/BSE listings, inspect eight
 weighted swing signals, compare timeframes, review model risk levels, and monitor saved stocks.
 The configured scan universe contains **165 NSE equities**; individual lookup also supports BSE,
@@ -61,7 +63,9 @@ timings are not performance guarantees for other devices or network conditions.
 
 ## Data sources and optional services
 
-Market research uses Yahoo Finance and Google News RSS without application API keys. Optional
+Market research uses Yahoo Finance and Google News RSS without application API keys. Weeks-to-months
+comparisons also read Nifty 50 and NSE sector-index history and dated quarterly EPS from Yahoo;
+see the [sector index mapping](docs/weeks-to-months.md#sector-index-mapping). Optional
 Ollama prose runs locally. Watchlists and alerts use embedded SQLite; browser push uses
 self-generated VAPID keys. See [Accounts, persistence & alerts](#accounts-persistence--alerts).
 Google sign-in requires OAuth credentials. The repository contains a broker-provider template,
@@ -79,6 +83,12 @@ but no broker integration or order execution is connected.
   confidence and validation status; then price action, grouped weighted contributions, model
   trade plan, sizing, risks, news and deeper research. Weekly agreement and available earnings
   dates add context. Sparse fundamentals and analyst coverage remain explicitly unavailable.
+  The **Mid-term · weeks to months** view adds the
+  [weeks-to-months evidence brief](docs/weeks-to-months.md): Nifty 50 and sector-index trend,
+  stock trend checks with confirmed crossovers, 3/6/12-month relative strength, structure,
+  candle and indicator events with confirmation rules, fundamentals with source labels, events,
+  news, risk arithmetic, conflicts and the engine's stored historical status. The chosen
+  timeframe is remembered in the browser.
 - **Watchlist** — server-persisted saved stocks, refreshed scores, changes since the previous
   in-session reading, alert state and a route back to reports. Anonymous access depends on the
   browser identity cookie; deleting it can lose access to those saved records.
@@ -115,6 +125,9 @@ data providers ──▶ src/lib/providers/    the data seam (Yahoo default; bro
                         │                 weekly resampling
                         ▼
                   src/lib/swing.ts       8 weighted signals + weekly → score → verdict → plan
+                  src/lib/midterm.ts     weeks-to-months score (rules shown from midRules.ts)
+                  src/lib/positionEvidence.ts  descriptive weeks-to-months evidence (not a score input),
+                        │                 with candlePatterns.ts, indicatorEvents.ts, sectorBenchmarks.ts
                         │
                   src/lib/screener.ts    universe scan → buckets + sector rotation
                         │
@@ -197,7 +210,12 @@ Source coverage and the current implementation impose limits:
 - **Company names can resolve ambiguously**, especially after corporate actions. Pick the exact
   company and exchange in autocomplete and check the resolved report identity.
 - **News and earnings are incomplete context.** Headlines are leads to verify; earnings dates can
-  be missing or estimated. Neither source guarantees that all material events are known.
+  be missing or estimated. Neither source guarantees that all material events are known. Headlines
+  that do not name the company are hidden and counted; exchange filings remain the primary source.
+- **Comparisons are price returns.** Dividends are excluded for stocks and indices. Some sector
+  indices are approximate matches, and several NSE indices have no provider history.
+- **Provider revenue/profit history is not used.** In a 22 Nov 2026 check it contained zero-filled
+  and inconsistent periods for Indian listings; only dated quarterly EPS is shown.
 
 ---
 

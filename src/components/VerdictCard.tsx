@@ -59,10 +59,13 @@ export default function VerdictCard({ tf }: { tf: TimeframeAnalysis }) {
             ? 'The weighted swing score has not demonstrated a stable trading edge. Historical results changed across tested periods. A bullish reading describes this setup; it does not establish a profitable trade.'
             : evidence.isProxy
               ? 'Historical testing covers a price-trend proxy only. It does not validate today’s fundamental score.'
-              : 'The stored historical study did not establish a reliable trading edge. A bullish reading is a description of the rules, not a return forecast.'}
+              : tf.timeframe === 'mid'
+                ? `The stored study (measured ${evidence.measuredOn}) found no reliable edge: over ${evidence.horizonDays}-session forward windows, higher scores were followed by lower average returns (correlation ${evidence.correlation.toFixed(3)}), and simulated trades averaged ${evidence.expectancyR.toFixed(3)}R after the assumed costs (profit factor ${evidence.profitFactor.toFixed(2)}). That negative association does not validate an inverse strategy. A bullish reading describes the rules, not a return forecast.`
+                : 'The stored historical study did not establish a reliable trading edge. A bullish reading is a description of the rules, not a return forecast.'}
         </p>
         <p className="mt-2 text-xs text-[var(--muted)]">
-          Stored study: {evidence.symbols} stocks · {evidence.samples.toLocaleString('en-IN')} signal samples · {evidence.expectancyR.toFixed(3)}R per trade after assumed costs. Full assumptions in Strategy evidence.
+          Stored study: {evidence.symbols} stocks · {evidence.samples.toLocaleString('en-IN')} {tf.timeframe === 'mid' ? 'overlapping daily observations · about two years of decisions' : 'signal samples'} · {evidence.expectancyR.toFixed(3)}R per trade after assumed costs.
+          {tf.timeframe === 'mid' ? ' The weeks-to-months evidence below is separate from this score and has not been tested.' : ''} Full assumptions in Strategy evidence.
         </p>
       </div>
     </section>
