@@ -15,8 +15,10 @@
  *   node scripts/research/engine-study.mjs --engine short --window 2019-2022 --null 3
  * Options: --engine short|mid|long (default mid), --window recent|2019-2022,
  * --null N (shuffled-price runs, seeds 1..N), --reps N (bootstrap replicates),
- * --refresh (refetch instead of using the .data/research/ cache).
- * Writes docs/research/results/<engine>-<window>.json and prints a summary.
+ * --refresh (refetch instead of using the .data/research/ cache),
+ * --keep-placeholder-bars (the bar filter fixed in the plans; reproduces the
+ * results published on 22 Nov 2026), --tag NAME (suffix for the output file).
+ * Writes docs/research/results/<engine>-<window>[-<tag>].json and prints a summary.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -190,6 +192,21 @@ async function loadData() {
 /* ------------------------------------------------------------------ study */
 
 const data = await loadData();
+
+// The app drops Yahoo placeholder bars from 22 Nov 2026 (src/lib/barQuality.ts).
+// Results published before that fix were run with --keep-placeholder-bars,
+// which reproduces the completeness-only filter fixed in the plans.
+const { dropPlaceholderBars } = loadTs('src/lib/barQuality');
+const KEEP_PLACEHOLDERS = flag('keep-placeholder-bars');
+let placeholderBarsDropped = 0;
+if (!KEEP_PLACEHOLDERS) {
+  for (const [symbol, entry] of Object.entries(data.series)) {
+    if (!entry?.bars) continue;
+    const kept = dropPlaceholderBars(entry.bars);
+    if (symbol !== MARKET_INDEX.symbol) placeholderBarsDropped += entry.bars.length - kept.length;
+    entry.bars = kept;
+  }
+}
 const nifty = data.series[MARKET_INDEX.symbol];
 if (!nifty?.bars?.length) throw new Error('Nifty 50 series unavailable; cannot build the market regime.');
 
@@ -485,6 +502,9 @@ const out = {
   windowKey: W.key,
   plan: PLAN,
   codeVersion,
+  barFilter: KEEP_PLACEHOLDERS
+    ? 'complete rows only (the app before 22 Nov 2026; the filter fixed in the plans)'
+    : 'complete rows, placeholder bars dropped (the app from 22 Nov 2026)',
   dataFetchedAt: data.fetchedAt,
   fetchSpan: W.span,
   decisionWindow: { from: firstDate, to: lastDate, tradingDates: D },
@@ -553,6 +573,7 @@ const out = {
     },
     dataQuality: {
       ...quality,
+      placeholderBarsDropped: KEEP_PLACEHOLDERS ? null : placeholderBarsDropped,
       extremeMoveThresholdPct: EXTREME_MOVE * 100,
       extremeMoveCount: quality.extremeMoves.length,
     },
@@ -561,7 +582,8 @@ const out = {
 
 const outDir = path.join(ROOT, 'docs', 'research', 'results');
 fs.mkdirSync(outDir, { recursive: true });
-const outFile = path.join(outDir, `${ENGINE}-${W.key}.json`);
+const TAG = option('tag', '');
+const outFile = path.join(outDir, `${ENGINE}-${W.key}${TAG ? `-${TAG}` : ''}.json`);
 fs.writeFileSync(outFile, `${JSON.stringify(out, null, 2)}\n`);
 
 /* ---------------------------------------------------------------- summary */
@@ -586,4 +608,5 @@ if (out.nullCalibration) {
 const sv = out.limits.survivorship;
 console.log(`survivorship proxy  stocks EW ${sv.equalWeightStockReturnPct}% (median ${sv.medianStockReturnPct}%) vs Nifty 50 ${sv.nifty50PriceReturnPct}%`);
 console.log(`data quality        dropped rows ${quality.droppedRows}/${quality.rawRows}, zero-volume ${quality.zeroVolumeBars}, >20% moves ${quality.extremeMoves.length}, missing sessions ${quality.missingSessions}, duplicates ${quality.duplicateDates}`);
+console.log(`bar filter          ${out.barFilter}${KEEP_PLACEHOLDERS ? '' : `; ${placeholderBarsDropped} placeholder bars dropped`}`);
 console.log(`\nWrote ${path.relative(ROOT, outFile)}`);

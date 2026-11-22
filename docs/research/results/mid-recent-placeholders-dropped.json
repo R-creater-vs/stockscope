@@ -1,0 +1,391 @@
+{
+  "engine": "mid",
+  "engineLabel": "Mid-term engine",
+  "engineSource": "src/lib/midterm.ts",
+  "window": "Recent (trailing 3-year fetch)",
+  "windowKey": "recent",
+  "plan": "docs/research/mid-engine-preregistration.md",
+  "codeVersion": "bf49852 (with uncommitted changes)",
+  "barFilter": "complete rows, placeholder bars dropped (the app from 22 Nov 2026)",
+  "dataFetchedAt": "2026-11-22T15:58:21.591Z",
+  "fetchSpan": {
+    "years": 3
+  },
+  "decisionWindow": {
+    "from": "2024-10-01",
+    "to": "2026-10-22",
+    "tradingDates": 509
+  },
+  "method": {
+    "horizonSessions": 20,
+    "bootstrap": {
+      "type": "circular block over trading dates",
+      "blockSessions": 40,
+      "replicates": 2000,
+      "seed": 20261122
+    },
+    "tradeBootstrap": "iid over calendar months of entry"
+  },
+  "sanity": {
+    "samplesReproduceAppCorrelation": true,
+    "ourPooled": -0.199905,
+    "appPooled": -0.199905
+  },
+  "primary": {
+    "pooledCorrelation": {
+      "estimate": -0.1999,
+      "lo": -0.2912,
+      "hi": -0.1358,
+      "se": 0.0406
+    },
+    "expectancyR": {
+      "estimate": -0.1315,
+      "lo": -0.2949,
+      "hi": 0.0245,
+      "se": 0.0834
+    },
+    "profitFactor": {
+      "estimate": 0.7993,
+      "lo": 0.5774,
+      "hi": 1.0939,
+      "se": 0.1339
+    },
+    "winRatePct": {
+      "estimate": 41.4132,
+      "lo": 33.8218,
+      "hi": 48.8296,
+      "se": 3.8888
+    },
+    "trades": 2038,
+    "samples": 83317,
+    "stocks": 165,
+    "avgBuyHoldPct": 1.17,
+    "avgStrategyReturnPct": -10.33,
+    "regimeFiltered": {
+      "trades": 1657,
+      "expectancyR": -0.1491,
+      "profitFactor": 0.7636
+    }
+  },
+  "buckets": [
+    {
+      "label": "<40",
+      "n": 39924,
+      "avgForwardReturnPct": 0.661,
+      "winRatePct": 50.4
+    },
+    {
+      "label": "40-50",
+      "n": 3491,
+      "avgForwardReturnPct": 0.063,
+      "winRatePct": 48
+    },
+    {
+      "label": "50-58",
+      "n": 4331,
+      "avgForwardReturnPct": -0.333,
+      "winRatePct": 45
+    },
+    {
+      "label": "58-72 (Buy)",
+      "n": 11658,
+      "avgForwardReturnPct": -0.293,
+      "winRatePct": 45.8
+    },
+    {
+      "label": "72+ (Strong)",
+      "n": 23913,
+      "avgForwardReturnPct": -0.334,
+      "winRatePct": 46.5
+    }
+  ],
+  "secondary": {
+    "meanDailyIC": {
+      "estimate": -0.0077,
+      "lo": -0.0647,
+      "hi": 0.0503,
+      "se": 0.0297
+    },
+    "topMinusBottomSpreadPct": {
+      "estimate": -0.9946,
+      "lo": -2.5029,
+      "hi": 0.5919,
+      "se": 0.7676
+    },
+    "regime": {
+      "niftyAbove50EMA": {
+        "estimate": -0.1912,
+        "lo": -0.3107,
+        "hi": -0.1015,
+        "se": 0.0529,
+        "samples": 40331
+      },
+      "niftyBelow50EMA": {
+        "estimate": -0.2165,
+        "lo": -0.3307,
+        "hi": -0.1448,
+        "se": 0.0478,
+        "samples": 42986
+      }
+    },
+    "nonOverlapping": {
+      "offsets": 20,
+      "mean": -0.1946,
+      "min": -0.2486,
+      "max": -0.1317
+    },
+    "inputs": [
+      {
+        "name": "Price vs 50 & 200-day SMA",
+        "weight": 20,
+        "coverage": 1,
+        "meanDailyIC": {
+          "estimate": -0.0061,
+          "lo": -0.0532,
+          "hi": 0.0411,
+          "se": 0.0242
+        },
+        "dropOneDelta": {
+          "estimate": 0.0106,
+          "lo": 0.0034,
+          "hi": 0.016,
+          "se": 0.0032
+        }
+      },
+      {
+        "name": "50/200 SMA structure",
+        "weight": 16,
+        "coverage": 1,
+        "meanDailyIC": {
+          "estimate": 0.0152,
+          "lo": -0.0362,
+          "hi": 0.0642,
+          "se": 0.0254
+        },
+        "dropOneDelta": {
+          "estimate": -0.014,
+          "lo": -0.0253,
+          "hi": 0.0027,
+          "se": 0.007
+        }
+      },
+      {
+        "name": "Weekly trend",
+        "weight": 16,
+        "coverage": 1,
+        "meanDailyIC": {
+          "estimate": -0.0077,
+          "lo": -0.058,
+          "hi": 0.0447,
+          "se": 0.0264
+        },
+        "dropOneDelta": {
+          "estimate": 0.0069,
+          "lo": 0.0003,
+          "hi": 0.0119,
+          "se": 0.0029
+        }
+      },
+      {
+        "name": "Trend strength (ADX)",
+        "weight": 12,
+        "coverage": 1,
+        "meanDailyIC": {
+          "estimate": -0.0258,
+          "lo": -0.0664,
+          "hi": 0.0197,
+          "se": 0.0217
+        },
+        "dropOneDelta": {
+          "estimate": -0.0006,
+          "lo": -0.0075,
+          "hi": 0.0036,
+          "se": 0.0029
+        }
+      },
+      {
+        "name": "3 & 6-month momentum",
+        "weight": 14,
+        "coverage": 1,
+        "meanDailyIC": {
+          "estimate": -0.0126,
+          "lo": -0.0652,
+          "hi": 0.0418,
+          "se": 0.0275
+        },
+        "dropOneDelta": {
+          "estimate": -0.0039,
+          "lo": -0.0105,
+          "hi": 0.0022,
+          "se": 0.0033
+        }
+      },
+      {
+        "name": "RSI (14)",
+        "weight": 8,
+        "coverage": 1,
+        "meanDailyIC": {
+          "estimate": -0.0252,
+          "lo": -0.0655,
+          "hi": 0.0181,
+          "se": 0.0214
+        },
+        "dropOneDelta": {
+          "estimate": 0.0004,
+          "lo": -0.0034,
+          "hi": 0.0029,
+          "se": 0.0016
+        }
+      },
+      {
+        "name": "Position in 52-week range",
+        "weight": 14,
+        "coverage": 1,
+        "meanDailyIC": {
+          "estimate": 0.0148,
+          "lo": -0.0428,
+          "hi": 0.0715,
+          "se": 0.0291
+        },
+        "dropOneDelta": {
+          "estimate": -0.0071,
+          "lo": -0.0121,
+          "hi": -0.0023,
+          "se": 0.0025
+        }
+      }
+    ]
+  },
+  "nullCalibration": null,
+  "limits": {
+    "coverage": {
+      "attempted": 165,
+      "studied": 165,
+      "fetchFailed": [],
+      "tooShort": [],
+      "listedDuringFetch": [
+        {
+          "symbol": "TMCV.NS",
+          "firstBar": "2025-11-12"
+        }
+      ]
+    },
+    "survivorship": {
+      "from": "2024-10-01",
+      "to": "2026-10-22",
+      "stocksWithBothDates": 164,
+      "equalWeightStockReturnPct": -6.11,
+      "medianStockReturnPct": -15.38,
+      "nifty50PriceReturnPct": -12.05,
+      "shareOfStocksBeatingNiftyPct": 45.1
+    },
+    "dataQuality": {
+      "rawRows": 121610,
+      "droppedRows": 8,
+      "keptBars": 121267,
+      "zeroVolumeBars": 0,
+      "duplicateDates": 0,
+      "missingSessions": 178,
+      "extremeMoves": [
+        {
+          "symbol": "INDUSINDBK.NS",
+          "date": "2025-03-11",
+          "movePct": -27.2
+        },
+        {
+          "symbol": "RECLTD.NS",
+          "date": "2024-06-04",
+          "movePct": -25.2
+        },
+        {
+          "symbol": "PFC.NS",
+          "date": "2024-06-04",
+          "movePct": -23.1
+        },
+        {
+          "symbol": "IRFC.NS",
+          "date": "2024-01-16",
+          "movePct": 25.1
+        },
+        {
+          "symbol": "POLICYBZR.NS",
+          "date": "2026-09-24",
+          "movePct": -36
+        },
+        {
+          "symbol": "OFSS.NS",
+          "date": "2024-01-18",
+          "movePct": 28.7
+        },
+        {
+          "symbol": "ADANIGREEN.NS",
+          "date": "2024-11-29",
+          "movePct": 21.8
+        },
+        {
+          "symbol": "TMPV.NS",
+          "date": "2025-10-14",
+          "movePct": -40.2
+        },
+        {
+          "symbol": "VEDL.NS",
+          "date": "2026-04-30",
+          "movePct": -64.9
+        },
+        {
+          "symbol": "SAIL.NS",
+          "date": "2024-06-04",
+          "movePct": -20
+        },
+        {
+          "symbol": "HINDZINC.NS",
+          "date": "2024-05-21",
+          "movePct": 25.6
+        },
+        {
+          "symbol": "TRENT.NS",
+          "date": "2026-01-01",
+          "movePct": -33
+        },
+        {
+          "symbol": "BHEL.NS",
+          "date": "2024-06-04",
+          "movePct": -20.8
+        },
+        {
+          "symbol": "CONCOR.NS",
+          "date": "2025-01-01",
+          "movePct": -20.9
+        },
+        {
+          "symbol": "ADANIENT.NS",
+          "date": "2024-11-21",
+          "movePct": -22.6
+        },
+        {
+          "symbol": "ADANIPORTS.NS",
+          "date": "2024-06-04",
+          "movePct": -21.1
+        },
+        {
+          "symbol": "IDEA.NS",
+          "date": "2023-12-29",
+          "movePct": 20.8
+        },
+        {
+          "symbol": "IEX.NS",
+          "date": "2025-07-24",
+          "movePct": -29.6
+        },
+        {
+          "symbol": "STLTECH.NS",
+          "date": "2025-04-24",
+          "movePct": -25.2
+        }
+      ],
+      "placeholderBarsDropped": 335,
+      "extremeMoveThresholdPct": 20,
+      "extremeMoveCount": 19
+    }
+  }
+}

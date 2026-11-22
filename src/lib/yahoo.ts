@@ -10,6 +10,7 @@
 import YahooFinance from 'yahoo-finance2';
 import { ExtendedCookieJar } from 'yahoo-finance2/lib/cookieJar';
 import type { Bar } from './indicators';
+import { dropPlaceholderBars } from './barQuality';
 import { UNIVERSE } from './universe';
 import { withDeadline, type DataRequestOptions } from './providerRequest';
 
@@ -224,20 +225,27 @@ function salvageQuotes(err: unknown): RawQuoteRow[] | null {
   return Array.isArray(quotes) ? (quotes as RawQuoteRow[]) : null;
 }
 
+/**
+ * Complete rows only, then without placeholder bars (see `isPlaceholderBar`):
+ * a session Yahoo has no data for is treated as missing, not as a day with no
+ * price range.
+ */
 function toBars(rows: RawQuoteRow[]): Bar[] {
-  return rows
-    .filter(
-      (q) =>
-        q.open != null && q.high != null && q.low != null && q.close != null && q.volume != null,
-    )
-    .map((q) => ({
-      date: new Date(q.date).toISOString().slice(0, 10),
-      open: q.open as number,
-      high: q.high as number,
-      low: q.low as number,
-      close: q.close as number,
-      volume: q.volume as number,
-    }));
+  return dropPlaceholderBars(
+    rows
+      .filter(
+        (q) =>
+          q.open != null && q.high != null && q.low != null && q.close != null && q.volume != null,
+      )
+      .map((q) => ({
+        date: new Date(q.date).toISOString().slice(0, 10),
+        open: q.open as number,
+        high: q.high as number,
+        low: q.low as number,
+        close: q.close as number,
+        volume: q.volume as number,
+      })),
+  );
 }
 
 /**

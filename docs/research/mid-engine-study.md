@@ -48,12 +48,12 @@ flowchart LR
 ## Reproduce it
 
 ```bash
-npm test                                                     # 60 tests, incl. the statistics
-node scripts/research/engine-study.mjs --engine mid --window recent --null 3
-node scripts/research/engine-study.mjs --engine mid --window 2019-2022 --null 3
+npm test                                                     # unit tests, incl. the statistics
+node scripts/research/engine-study.mjs --engine mid --window recent --null 3 --keep-placeholder-bars
+node scripts/research/engine-study.mjs --engine mid --window 2019-2022 --null 3 --keep-placeholder-bars
 ```
 
-The first run of each window downloads bars to `.data/research/` (not committed); later runs reuse them, so the figures are reproducible. `--refresh` downloads again. Each run takes a few minutes and writes `docs/research/results/mid-<window>.json`.
+The first run of each window downloads bars to `.data/research/` (not committed); later runs reuse them, so the figures are reproducible. `--refresh` downloads again. Each run takes a few minutes and writes `docs/research/results/mid-<window>.json`. `--keep-placeholder-bars` reproduces the bar filter the plan fixed, which the app used at the time; without it the script applies the app's later placeholder-bar fix ([see below](#after-the-study-the-placeholder-bar-fix)).
 
 ## Results
 
@@ -167,9 +167,25 @@ In both periods the equal-weighted average of today's stocks beat the index (by 
 | Sessions where the Nifty traded but the stock has no bar | 1 | 0 |
 | Duplicate dates | 0 | 0 |
 
-- **Placeholder bars.** 321 of the 335 zero-volume bars in the recent download fall on two dates: 2025-03-18 (163 stocks) and 2026-01-15 (158 stocks). On those dates Yahoo returns a bar whose open, high, low and close all equal the previous close, with zero volume. 18 March 2025 was a normal NSE trading day, so these bars stand in for missing data; 15 January 2026 was not checked. They flatten range-based indicators (ATR, ADX) for a day and move that day's price change into the next bar. The app uses these bars as they are. Dropping zero-volume flat bars in `toBars` would be a small, testable fix.
+- **Placeholder bars.** 321 of the 335 zero-volume bars in the recent download fall on two dates: 2025-03-18 (163 stocks) and 2026-01-15 (158 stocks). On those dates Yahoo returns a bar whose open, high, low and close all equal the previous close, with zero volume. 18 March 2025 was a normal NSE trading day, so these bars stand in for missing data; 15 January 2026 was not checked. They flatten range-based indicators (ATR, ADX) for a day and move that day's price change into the next bar. The study used these bars as the app did at the time, because the plan fixed the bar filter in advance. Since this study, the app drops them (see below).
 - **Large moves.** Most are real events: the March 2020 COVID crash, Vodafone Idea's swings in 2019–2020 (20 events), and the public-sector bank recapitalisation rally of 25 October 2017 (PNB +46%). A few look like corporate actions left unadjusted in the price series, for example TMPV −40.2% on 2025-10-14 (around the Tata Motors demerger) and VEDL −64.9% on 2026-04-30. These were not verified against exchange records. An unadjusted demerger shows up as a crash that never happened, which matters for any backtest.
 - **Prices are not dividend-adjusted,** so returns understate total returns by roughly the dividend yield. This affects levels, not the comparison between score buckets on the same day.
+
+### After the study: the placeholder-bar fix
+
+The app now drops any bar whose open, high, low and close are equal and whose volume is zero (`src/lib/barQuality.ts`, called from `toBars` in `src/lib/yahoo.ts`, with tests in `tests/barQuality.test.mjs`). A real session with no range still has volume, and a thin session with a range still has a range, so both are kept. The fix came after the study, and the published figures above are not changed. Re-running both windows with the fix shows how much the placeholder bars mattered:
+
+| | Recent, as published | Recent, placeholders dropped | 2019–22, as published | 2019–22, placeholders dropped |
+| --- | ---: | ---: | ---: | ---: |
+| Bars dropped | — | 335 | — | 46 |
+| Daily observations | 83,652 | 83,317 | 152,859 | 152,821 |
+| Pooled correlation | −0.199 [−0.291, −0.135] | −0.200 [−0.291, −0.136] | −0.049 [−0.141, +0.025] | −0.049 [−0.141, +0.025] |
+| Mean daily IC | −0.008 [−0.065, +0.050] | −0.008 [−0.065, +0.050] | +0.001 [−0.043, +0.045] | +0.001 [−0.043, +0.045] |
+| Trades | 2,046 | 2,038 | 4,231 | 4,229 |
+| Net expectancy per trade | −0.136R [−0.299, +0.020] | −0.132R [−0.295, +0.025] | +0.119R [+0.007, +0.227] | +0.119R [+0.006, +0.226] |
+| Strategy return per stock | −10.7% | −10.3% | +51.1% | +51.1% |
+
+No correlation or IC moves by more than 0.001, expectancy moves by at most 0.004R, and every interval that included zero still does (and the one that excluded it still does), so the conclusion does not depend on the placeholder bars. The sensitivity runs are in `docs/research/results/mid-*-placeholders-dropped.json`. They skip the shuffled-price runs, which are not needed for this comparison.
 
 ## What this study does and does not show
 
